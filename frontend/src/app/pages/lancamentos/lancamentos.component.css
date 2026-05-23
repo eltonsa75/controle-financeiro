@@ -1,0 +1,110 @@
+.split-screen {
+  display: flex;
+  gap: 20px;
+  height: 70vh;
+}
+
+.column {
+  flex: 1;
+  border-radius: 10px;
+  padding: 15px;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  border: 1px solid #ddd;
+}
+
+.receita-bg { background-color: #f0fff4; } /* Verde bem clarinho */
+.despesa-bg { background-color: #fff5f5; } /* Vermelho bem clarinho */
+
+.column-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.card {
+  background: white;
+  padding: 10px;
+  margin-bottom: 10px;
+  border-radius: 5px;
+  display: flex;
+  gap: 10px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.card input {
+  border: 1px solid #eee;
+  padding: 5px;
+  border-radius: 3px;
+}
+
+.btn {
+  padding: 8px 15px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.add-receita { background: #27ae60; color: white; }
+.add-despesa { background: #e74c3c; color: white; }
+.btn-save { background: #2c3e50; color: white; padding: 15px 30px; font-size: 1.1rem; }
+
+.footer-save {
+  margin-top: 20px;
+  text-align: center;
+}
+
+.btn-del {
+  background: none;
+  border: none;
+  color: #ccc;
+  cursor: pointer;
+}
+.btn-del:hover { color: red; }
+
+.labels-row {
+  display: flex;
+  padding: 0 10px;
+  margin-bottom: 5px;
+  font-size: 0.8rem;
+  font-weight: bold;
+  color: #666;
+  text-transform: uppercase;
+}
+
+.labels-row span:first-child {
+  flex: 1.5; /* Ajuste para alinhar com o input de descrição */
+}
+
+.labels-row span:last-child {
+  flex: 1; /* Ajuste para alinhar com o input de valor */
+  padding-left: 10px;
+}
+
+/* Garante que o input e a legenda tenham proporções parecidas */
+.card input:first-child { flex: 1.5; }
+.card input:nth-child(2) { flex: 1; }
+
+.select-categoria {
+  padding: 5px;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+  background-color: white;
+  font-size: 0.9rem;
+  flex: 1; /* Faz o select ocupar um espaço equilibrado no card */
+  min-width: 120px;
+}
+
+.card {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 10px;
+  margin-bottom: 8px;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}

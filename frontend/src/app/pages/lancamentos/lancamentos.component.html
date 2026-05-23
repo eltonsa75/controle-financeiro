@@ -1,0 +1,81 @@
+<section class="finance-container">
+  <div class="header-actions">
+    <h2>Fluxo Mensal</h2>
+    <input type="month" (change)="filtrarPorMes($event)">
+  </div>
+
+  @if (carregando) {
+    <div class="loading-state">
+      <p>Buscando dados no servidor...</p>
+    </div>
+  } @else {
+    <div class="split-screen">
+      
+      <div class="column receita-bg">
+        <div class="column-header">
+          <h3>➕ Receitas</h3>
+          <button class="btn add-receita" (click)="adicionarLinha('receita')">Nova Receita</button>
+        </div>
+
+        <div class="labels-row" *ngIf="temTipo('receita')">
+          <span>Descrição</span>
+          <span>Valor (R$)</span>
+          <span>Categoria</span>
+        </div>
+
+        <div class="cards-list">
+          @for (item of listaLancamentos; track $index) {
+            @if (item.tipo === 'receita') {
+              <div class="card">
+                <input type="text" [(ngModel)]="item.descricao" placeholder="Ex: Salário">
+                <input type="number" [(ngModel)]="item.valor" placeholder="0,00">
+                <select [(ngModel)]="item.categoriaId" class="select-categoria">
+                  <option [ngValue]="null">Selecione...</option>
+                  <option *ngFor="let cat of categorias" [ngValue]="cat.id">{{cat.nome}}</option>
+                </select>
+                <button class="btn-del" (click)="remover(item.id)">✕</button>
+              </div>
+            }
+          } @empty {
+            <p class="empty-msg">Nenhuma receita pendente.</p>
+          }
+        </div>
+      </div>
+
+      <div class="column despesa-bg">
+        <div class="column-header">
+          <h3>➖ Despesas</h3>
+          <button class="btn add-despesa" (click)="adicionarLinha('despesa')">Nova Despesa</button>
+        </div>
+
+        <div class="labels-row" *ngIf="temTipo('despesa')">
+          <span>Descrição</span>
+          <span>Valor (R$)</span>
+          <span>Categoria</span>
+        </div>
+
+        <div class="cards-list">
+          @for (item of listaLancamentos; track $index) {
+            @if (item.tipo === 'despesa') {
+              <div class="card">
+                <input type="text" [(ngModel)]="item.descricao" placeholder="Ex: Aluguel">
+                <input type="number" [(ngModel)]="item.valor" placeholder="0,00">
+                <select [(ngModel)]="item.categoriaId" class="select-categoria">
+                  <option [ngValue]="null">Selecione...</option>
+                  <option *ngFor="let cat of categorias" [ngValue]="cat.id">{{cat.nome}}</option>
+                </select>
+                <button class="btn-del" (click)="remover(item.id)">✕</button>
+              </div>
+            }
+          } @empty {
+            <p class="empty-msg">Nenhuma despesa pendente.</p>
+          }
+        </div>
+      </div>
+    </div>
+
+    <div class="footer-save" *ngIf="listaLancamentos.length > 0">
+      <button class="btn-save" (click)="salvarTudo()">Salvar todos os lançamentos do mês</button>
+    </div>
+  }
+</section>

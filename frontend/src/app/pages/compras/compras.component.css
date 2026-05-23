@@ -1,0 +1,246 @@
+/* Container Principal */
+.compras-container {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+/* Monitor de Saldo */
+.monitor-saldo {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  background: #fff;
+  padding: 15px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.saldo-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.saldo-item.text-end {
+  align-items: flex-end;
+}
+
+.saldo-item .label {
+  color: #7f8c8d;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  margin-bottom: 2px;
+}
+
+.saldo-item .valor, .valor-restante {
+  font-size: 1.3rem;
+  font-weight: bold;
+}
+
+/* Barra de Progresso */
+.progress-bar-container {
+  width: 100%;
+  background: #eee;
+  border-radius: 6px;
+  margin: 20px 0;
+  overflow: hidden;
+  position: relative;
+}
+
+.progress-bar {
+  height: 15px;
+  transition: width 0.4s ease, background-color 0.4s ease;
+}
+
+.porcentagem-texto {
+  display: block;
+  margin-top: 5px;
+  font-size: 0.75rem;
+  color: #95a5a6;
+  text-align: right;
+}
+
+/* Tabela de Itens */
+.tabela-compras {
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #eee;
+  margin-bottom: 20px;
+}
+
+.legenda-compras {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  gap: 15px;
+  padding: 10px 15px;
+  background: #2c3e50;
+  color: white;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+/* Ajuste na Linha: Alinhamento pelo topo (flex-start) evita quebras */
+.item-linha {
+  display: flex;
+  align-items: flex-start; 
+  padding: 15px 15px;
+  gap: 15px;
+  border-bottom: 1px solid #f5f5f5;
+  background: #fff;
+  min-height: 90px;
+}
+
+/* Definição de Larguras das Colunas */
+.col-check { 
+  width: 30px; 
+  flex-shrink: 0;
+  padding-top: 8px; 
+}
+
+.col-nome {
+ flex: 1;
+  display: flex;
+  align-items: center; 
+  height: 100%; /* Ocupa a altura total da linha */
+}
+
+.col-qtd { 
+  width: 150px; 
+  flex-shrink: 0;
+  display: flex;
+  justify-content: center;
+  padding-top: 5px;
+}
+
+.col-preco { 
+  width: 120px; 
+  flex-shrink: 0;
+  padding-top: 5px;
+}
+
+.col-subtotal { 
+  width: 100px; 
+  flex-shrink: 0; 
+  text-align: right; 
+  font-weight: bold;
+  padding-top: 12px;
+  color: #2c3e50;
+}
+
+/* Inputs e Seletor de Categoria */
+.item-linha input {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 0.95rem;
+}
+
+.seletor-categoria-item {
+  display: flex;
+  align-items: center;
+  font-size: 0.85rem;
+  margin: 0 !important; /* Remove margens que causam o degrau */
+  padding: 0 10px;
+  background-color: #f8f9fa;
+  border: 1px solid #dee2e6;
+}
+
+.item-linha.comprado {
+  background-color: #f1f8f1;
+}
+
+/* Grupo de Quantidade + Unidade */
+.item-linha .input-group {
+  display: flex;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.item-linha .input-group input {
+  border: none !important;
+  border-right: 1px solid #ddd !important;
+  width: 60px;
+  text-align: center;
+  border-radius: 0;
+}
+
+.item-linha .input-group .form-select {
+  border: none !important;
+  background-color: #f8f9fa;
+  width: 70px;
+  font-size: 0.8rem;
+  border-radius: 0;
+}
+
+/* Card de Comparativo */
+.comparativo-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  padding: 20px;
+  border-radius: 8px;
+}
+
+.info-anterior {
+  display: flex;
+  flex-direction: column; /* Força um embaixo do outro */
+  align-items: flex-start; /* Alinha tudo à esquerda */
+  gap: 2px; /* Pequeno espaço entre as linhas */
+}
+
+.info-anterior small {
+  color: #7f8c8d;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+}
+
+.info-anterior strong.valor-anterior {
+  font-size: 1.2rem;
+  color: #2c3e50;
+  line-height: 1.2;
+}
+
+.info-anterior span.local-anterior {
+  font-size: 0.9rem;
+  color: #95a5a6;
+  font-style: italic;
+}
+
+.valores-comparativos {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.indicador-diferenca {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.valor-principal { font-size: 1.2rem; }
+.status-texto { font-size: 0.85rem; opacity: 0.8; }
+.seta { font-size: 1.5rem; }
+.texto-vermelho { color: #e74c3c; }
+.texto-verde { color: #27ae60; }
+
+/* Botões de Ação */
+.acoes-compras {
+  display: flex;
+  justify-content: flex-end;
+  gap: 15px;
+  margin-top: 30px;
+}
+
+.btn-salvar { background: #0d6efd; color: white; padding: 12px 25px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; }
+.btn-limpar { background: #6c757d; color: white; padding: 12px 25px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; }

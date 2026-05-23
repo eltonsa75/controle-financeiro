@@ -1,0 +1,239 @@
+/* dashboard.component.css */
+
+.dashboard-container {
+  padding: 20px;
+  background-color: #f8f9fa;
+  min-height: 100vh;
+}
+
+/* Cards grid - primeira linha */
+.cards-grid {
+  display: flex; 
+  gap: 20px;
+  flex-wrap: wrap;
+  margin-bottom: 30px;
+}
+
+.card-financeiro {
+  background: white; 
+  padding: 20px; 
+  border-radius: 12px; 
+  flex: 1; 
+  min-width: 250px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+  transition: transform 0.2s;
+}
+
+.card-financeiro:hover {
+  transform: translateY(-5px);
+}
+
+.receita { border-left: 5px solid #27ae60; }
+.despesa { border-left: 5px solid #e74c3c; }
+.saldo { border-left: 5px solid #3498db; }
+
+/* Cards secundários (totais) */
+.card-total {
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  transition: transform 0.2s;
+}
+
+.card-total:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+/* Estilos gerais dos cards */
+.card {
+  border: none;
+  border-radius: 10px;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 20px rgba(0,0,0,0.1) !important;
+}
+
+.card-info small {
+  color: #7f8c8d;
+  text-transform: uppercase;
+  font-weight: bold;
+  font-size: 0.75rem;
+  letter-spacing: 1px;
+}
+
+.card-info h3 {
+  margin: 5px 0 0;
+  font-size: 1.8rem;
+  color: #2c3e50;
+}
+
+/* Cores específicas */
+.texto-verde { 
+  color: #27ae60; 
+  font-size: 2rem; 
+}
+
+.texto-vermelho { 
+  color: #e74c3c; 
+  font-size: 2rem; 
+}
+
+.text-success {
+  color: #28a745 !important;
+}
+
+.text-danger {
+  color: #dc3545 !important;
+}
+
+/* Containers dos gráficos */
+.chart-container {
+  margin-top: 20px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+}
+
+canvas {
+  max-width: 100%;
+}
+
+/* Ajustes específicos para cada canvas */
+canvas#canvasCategorias {
+  max-width: 100% !important;
+  max-height: 250px !important;
+}
+
+canvas#canvasEvolucao {
+  max-height: 300px;
+  width: 100%;
+}
+
+canvas#canvasCarosRef {
+  max-height: 350px;
+  width: 100%;
+}
+
+/* Botões de navegação */
+.btn-navegacao {
+  background-color: #f8f9fa;
+  color: #3498db;
+  transition: all 0.3s ease;
+  border-radius: 0;
+}
+
+.btn-navegacao:hover {
+  background-color: #3498db;
+  color: #ffffff;
+}
+
+.btn-navegacao:active {
+  background-color: #2980b9;
+}
+
+/* Seletor de mês/ano */
+.shadow-sm.rounded.border {
+  border-color: #dee2e6 !important;
+}
+
+/* Badge de período */
+.badge {
+  font-size: 0.75rem;
+  padding: 0.5rem 1rem;
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+  .dashboard-container {
+    padding: 12px;
+  }
+  
+  .cards-grid {
+    gap: 12px;
+  }
+  
+  .card-financeiro {
+    min-width: 100%;
+  }
+  
+  .card-info h3 {
+    font-size: 1.4rem;
+  }
+  
+  .texto-verde, .texto-vermelho {
+    font-size: 1.5rem;
+  }
+  
+  .btn-navegacao {
+    padding: 0.5rem 0.75rem;
+  }
+  
+  .mx-2 {
+    margin-left: 0.5rem !important;
+    margin-right: 0.5rem !important;
+  }
+  
+  .chart-container {
+    overflow-x: auto;
+  }
+  
+  canvas#canvasEvolucao,
+  canvas#canvasCarosRef {
+    min-width: 300px;
+  }
+}
+
+/* Animação de loading (opcional) */
+.loading-spinner {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 200px;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #e9ecef;
+  border-top-color: #3498db;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Tooltip personalizado (opcional) */
+[data-tooltip] {
+  position: relative;
+  cursor: help;
+}
+
+[data-tooltip]:before {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #2c3e50;
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+}
+
+[data-tooltip]:hover:before {
+  opacity: 1;
+}

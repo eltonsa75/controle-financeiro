@@ -1,0 +1,68 @@
+/* SEGURANÇA PARA O TÍTULO DO MODAL */
+#modalItens .modal-title {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: block; /* Garante que o truncate funcione */
+}
+
+/* MELHORIA VISUAL NA TABELA DE ITENS */
+#modalItens .table td.text-uppercase {
+    max-width: 300px; /* Evita que nomes de produtos gigantes empurrem as colunas */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Limita a duas linhas e adiciona reticências */
+.texto-duas-linhas {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: normal;
+    line-height: 1.2;
+}
+
+/* Para o título do Modal (deixando o texto menor) */
+.titulo-modal-ajustado {
+    font-size: 1.1rem !important;
+    font-weight: 600;
+    line-height: 1.3;
+}
+
+/* Força o texto a ter no máximo 2 linhas e adiciona "..." */
+.texto-limitado {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: normal;
+    line-height: 1.2;
+}
+
+/* Reduz o tamanho da fonte no cabeçalho do modal para não "gritar" */
+.titulo-modal-compacto {
+    font-size: 0.95rem !important;
+    font-weight: 600;
+    margin-bottom: 0;
+}
+
+/* Ajuste fino para a tabela de itens dentro do modal */
+.item-nome-tabela {
+    font-size: 0.75rem; /* Fonte pequena nos produtos */
+    max-width: 280px;
+}
+
+
+.border-white-10 {
+    border-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+/* Ajuste para o botão fechar não ficar desalinhado */
+.btn-close-white {
+    filter: invert(1) grayscale(100%) brightness(200%);
+    transform: scale(0.8);
+}

@@ -1,0 +1,97 @@
+<div class="container mt-4">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="fw-bold">📊 Gestão de Categorias</h2>
+    <button class="btn btn-primary shadow-sm" (click)="abrirModalNovaCategoria()">
+      <i class="bi bi-plus-lg"></i> Nova Categoria
+    </button>
+  </div>
+
+  <div class="row">
+    <div class="col-md-4 mb-4" *ngFor="let cat of categorias">
+      <div class="card h-100 shadow-sm border-0 border-start border-4" [style.border-color]="cat.corHex">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-start">
+            <h5 class="card-title fw-bold">{{ cat.nome }}</h5>
+            <span class="badge bg-light text-dark border">{{ cat.percentual | number:'1.0-0' }}%</span>
+          </div>
+          
+          <p class="text-muted small mb-1">
+            Gasto: {{ cat.gastoAtual | currency:'BRL' }} / Meta: {{ cat.metaMensal | currency:'BRL' }}
+          </p>
+          
+          <div class="progress mb-3" style="height: 10px;">
+            <div class="progress-bar" 
+                 [ngClass]="getProgressBarClass(cat.percentual)"
+                 role="progressbar" 
+                 [style.width]="(cat.percentual > 100 ? 100 : cat.percentual) + '%'">
+            </div>
+          </div>
+
+          <div class="d-flex justify-content-end gap-2">
+            <button class="btn btn-outline-secondary btn-sm" (click)="editar(cat)" title="Editar">
+              <i class="bi bi-pencil"></i>
+            </button>
+            <button class="btn btn-outline-danger btn-sm" (click)="excluir(cat.id)" title="Excluir">
+              <i class="bi bi-trash"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="modalCategoria" tabindex="-1" aria-labelledby="modalCategoriaLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title" id="modalCategoriaLabel">
+          {{ formCategoria.get('id')?.value ? 'Editar Categoria' : 'Nova Categoria' }}
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      
+      <form [formGroup]="formCategoria" (ngSubmit)="salvarCategoria()">
+        <div class="modal-body">
+          
+          <div class="mb-3">
+            <label class="form-label fw-bold">Nome da Categoria</label>
+            <input type="text" class="form-control" formControlName="nome" placeholder="Ex: Mercado, Lazer...">
+            <div *ngIf="formCategoria.get('nome')?.invalid && formCategoria.get('nome')?.touched" class="text-danger small">
+              O nome é obrigatório.
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-bold">Meta de Gasto (R$)</label>
+            <input type="number" class="form-control" formControlName="metaMensal">
+            <div *ngIf="formCategoria.get('metaMensal')?.invalid && formCategoria.get('metaMensal')?.touched" class="text-danger small">
+              A meta deve ser maior que zero.
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label class="form-label fw-bold">Cor de Identificação</label>
+              <input type="color" class="form-control form-control-color w-100" formControlName="corHex">
+            </div>
+
+            <div class="col-md-6 mb-3">
+              <label class="form-label fw-bold">Palavras-Chave</label>
+              <input type="text" class="form-control" formControlName="palavrasChave" placeholder="Ex: mercado, compra">
+              <small class="text-muted" style="font-size: 0.7rem;">Separe por vírgula para o PDF</small>
+            </div>
+          </div>
+
+        </div>
+        
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary" [disabled]="formCategoria.invalid">
+            <i class="bi bi-save"></i> Salvar Categoria
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

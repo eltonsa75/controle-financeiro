@@ -1,0 +1,41 @@
+<div class="sidebar d-flex flex-column p-3">
+  <div class="logo mb-4 text-center">
+    <h4 class="text-white fw-bold">Financeiro<span class="text-accent">.</span></h4>
+  </div>
+
+  <ul class="nav nav-pills flex-column mb-auto">
+    <li class="nav-item">
+      <a routerLink="/dashboard" routerLinkActive="active" class="nav-link text-white">
+        <i class="bi bi-speedometer2 me-2"></i> Dashboard
+      </a>
+    </li>
+    <li>
+      <a routerLink="/compras" routerLinkActive="active" class="nav-link text-white">
+        <i class="bi bi-cart me-2"></i> Compras / PDF
+      </a>
+    </li>
+    <li>
+      <a routerLink="/lancamentos" routerLinkActive="active" class="nav-link text-white">
+        <i class="bi bi-list-ul me-2"></i> Lançamentos
+      </a>
+    </li>
+    <li>
+  <a routerLink="/categorias" routerLinkActive="active" class="nav-link text-white">
+    <i class="bi bi-tags me-2"></i> Categorias
+  </a>
+</li>
+<li>
+  <a routerLink="/lista" routerLinkActive="active" class="nav-link text-white">
+    <i class="bi bi-view-list me-2"></i> Lista de Lançamentos
+  </a>
+</li>
+  </ul>
+
+  <hr class="text-white opacity-25">
+  
+  <div class="logout">
+    <button class="btn btn-link text-white text-decoration-none p-0" (click)="logout()">
+      <i class="bi bi-box-arrow-left me-2"></i> Sair
+    </button>
+  </div>
+</div>

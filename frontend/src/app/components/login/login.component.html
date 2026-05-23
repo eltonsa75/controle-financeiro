@@ -1,0 +1,64 @@
+<div class="main-container">
+  <div class="login-box">
+    
+    <div class="purple-panel">
+      <svg class="bg-pattern" viewBox="0 0 500 500" xmlns="http://www.w3.org/2000/svg">
+        <path fill="rgba(255,255,255,0.05)" d="M150,50 C200,100 100,150 150,200 S300,300 250,350 S100,450 150,500" />
+        <path fill="rgba(255,255,255,0.05)" d="M350,150 C400,200 300,250 350,300 S500,400 450,450 S300,550 350,600" />
+        <text x="80" y="80" fill="rgba(255,255,255,0.3)" font-size="24">+</text>
+        <text x="350" y="120" fill="rgba(255,255,255,0.3)" font-size="24">+</text>
+        <text x="220" y="320" fill="rgba(255,255,255,0.3)" font-size="24">+</text>
+        <circle cx="280" cy="180" r="8" stroke="rgba(255,255,255,0.3)" stroke-width="2" fill="none"/>
+        <circle cx="100" cy="400" r="8" stroke="rgba(255,255,255,0.3)" stroke-width="2" fill="none"/>
+      </svg>
+      
+      <div class="welcome-text">
+      <h1>Bem-vindo de volta!</h1>
+      <p>Sua gestão financeira em um só lugar. Entre para continuar acompanhando seus lançamentos e automatizando seus processos.</p>
+    </div>
+    </div>
+
+    <div class="form-panel">
+      <h2>Sign In</h2>
+      
+      <form (ngSubmit)="onSubmit()">
+        
+        <div class="input-group">
+          <i class="pi pi-user input-icon"></i>
+          <input type="email" 
+                 name="email" 
+                 [(ngModel)]="email" 
+                 required 
+                 placeholder="Username or email">
+        </div>
+
+        <div class="input-group">
+          <i class="pi pi-lock input-icon"></i>
+          <input type="password" 
+                 name="senha" 
+                 [(ngModel)]="senha" 
+                 required 
+                 placeholder="Password">
+        </div>
+
+        <div class="form-options">
+          <div class="remember-me">
+            <input type="checkbox" id="remember" name="rememberMe" [(ngModel)]="rememberMe">
+            <label for="remember">Remember me</label>
+          </div>
+          <a href="#" class="forgot-password">Forgot password?</a>
+        </div>
+
+        <button type="submit" class="btn-sign-in">Sign In</button>
+        
+        <p *ngIf="erro" class="error-msg">{{ erro }}</p>
+
+        <div class="create-account">
+          <span>New here?</span>
+          <a href="#">Create an Account</a>
+        </div>
+      </form>
+    </div>
+
+  </div>
+</div>

@@ -1,0 +1,40 @@
+# ====================================================================
+# SISTEMA OPERACIONAL
+# ====================================================================
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ====================================================================
+# FRONT-END (Angular / Node)
+# ====================================================================
+**/node_modules/
+**/dist/
+**/.angular/
+**/.sass-cache/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.editorconfig
+
+# ====================================================================
+# BACK-END (.NET Core / C#)
+# ====================================================================
+**/bin/
+**/obj/
+**/.vs/
+**/.vscode/
+*.user
+*.suo
+*.userprefs
+*.sln.docstates
+
+# Arquivos de segredos locais (Mantenha o appsettings.json padrão e ignore o Development se tiver senhas reais)
+**/appsettings.Development.json
+
+# ====================================================================
+# BANCO DE DADOS & ARQUIVOS LOCAIS
+# ====================================================================
+*.sql
+*.log
+.env

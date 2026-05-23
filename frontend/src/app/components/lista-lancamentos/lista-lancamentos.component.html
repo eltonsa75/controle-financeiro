@@ -1,0 +1,163 @@
+<div class="container mt-5">
+  <div class="card shadow">
+    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center py-3">
+      <h3 class="mb-0">Meus Lançamentos</h3>
+      <a routerLink="/compras" class="btn btn-success btn-lg shadow-sm">
+        <i class="bi bi-plus-circle"></i> + Novo Lançamento
+      </a>
+    </div>
+
+    <div class="card-body">
+      <div *ngIf="carregando" class="text-center py-5">
+        <div class="spinner-border text-primary" role="status"></div>
+        <p class="mt-2 text-muted">Buscando dados no servidor...</p>
+      </div>
+
+      <div *ngIf="!carregando && listaLancamentos.length === 0" class="text-center py-5">
+        <i class="bi bi-inbox fs-1 text-muted"></i>
+        <p class="mt-2 text-muted">Nenhum lançamento encontrado para este mês.</p>
+      </div>
+
+      <div class="table-responsive" *ngIf="!carregando && listaLancamentos.length > 0">
+        <table class="table table-hover align-middle">
+          <thead class="table-light text-secondary small">
+            <tr>
+              <th style="width: 120px;">Data Nota</th>
+              <th style="width: 350px;">Descrição</th>
+              <th>Categoria</th>
+              <th>Tipo</th>
+              <th>Valor</th>
+              <th>Importação</th>
+              <th class="text-center">Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let item of listaLancamentos">
+              <td class="fw-bold text-secondary" style="font-size: 0.85rem;">
+                {{ item.dataEmissao | date: 'dd/MM/yyyy' }}
+              </td>
+
+              <td>
+                <div class="texto-duas-linhas fw-bold" style="max-width: 320px; font-size: 0.9rem;" [title]="item.descricao">
+                  {{ item.descricao }}
+                </div>
+              </td>
+
+              <td>
+                <span class="badge rounded-pill bg-light text-dark border shadow-sm" style="font-size: 0.75rem;">
+                  <i class="bi bi-tag-fill text-primary me-1"></i>
+                  {{ item.categoria?.nome || 'Geral' }}
+                </span>
+              </td>
+
+              <td>
+                <span class="badge" [ngClass]="item.tipo.toLowerCase() === 'receita' ? 'bg-success' : 'bg-danger'" style="font-size: 0.7rem;">
+                  {{ item.tipo | uppercase }}
+                </span>
+              </td>
+
+              <td [ngClass]="item.tipo.toLowerCase() === 'receita' ? 'text-success' : 'text-danger'" class="fw-bold">
+                {{ item.valor | currency: 'BRL' }}
+              </td>
+
+              <td>
+                <small class="text-muted" style="font-size: 0.75rem;">
+                  <i class="bi bi-cloud-upload me-1"></i>
+                  {{ item.dataImportacao | date: 'dd/MM HH:mm' }}
+                </small>
+              </td>
+
+              <td class="text-center">
+                <div class="btn-group shadow-sm">
+                  <button class="btn btn-outline-primary btn-sm" (click)="abrirModalItens(item)" title="Ver Itens">
+                    <i class="bi bi-eye"></i>
+                  </button>
+                  <button class="btn btn-outline-danger btn-sm" (click)="excluir(item.id!)" title="Excluir">
+                    <i class="bi bi-trash"></i>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="modalItens" tabindex="-1" aria-labelledby="modalItensLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content border-0 shadow">
+      
+      <div class="modal-header bg-primary text-white d-flex flex-column align-items-start py-2" *ngIf="lancamentoSelecionado">
+        
+        <div class="d-flex justify-content-between w-100 align-items-center mb-1">
+          <small class="text-white-50 fw-bold" style="font-size: 0.65rem; letter-spacing: 1px;">
+            <i class="bi bi-receipt-cutoff me-1"></i> DETALHES DA NOTA
+          </small>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" (click)="fecharModal()"></button>
+        </div>
+        
+        <div class="w-100">
+          <h4 class="modal-title titulo-modal-compacto texto-duas-linhas mb-0" [title]="lancamentoSelecionado.descricao">
+            {{ lancamentoSelecionado.descricao.split(' - ')[0] }}
+          </h4>
+          
+          <div class="text-white-50 texto-duas-linhas small mt-1" style="font-size: 0.75rem; line-height: 1.1;">
+            {{ lancamentoSelecionado.descricao.split(' - ')[1] || 'Endereço não identificado' }}
+          </div>
+        </div>
+        
+        <div class="w-100 d-flex gap-3 text-white-75 border-top border-white-10 mt-2 pt-2" style="font-size: 0.7rem;">
+          <span><i class="bi bi-calendar3"></i> {{ lancamentoSelecionado.dataEmissao | date:'dd/MM/yyyy' }}</span>
+          <span><i class="bi bi-tag"></i> {{ lancamentoSelecionado.categoria?.nome || 'Geral' }}</span>
+          <span><i class="bi bi-currency-dollar"></i> {{ lancamentoSelecionado.valor | currency:'BRL' }}</span>
+        </div>
+      </div>
+
+      <div class="modal-body">
+        <div class="table-responsive" *ngIf="itensSelecionados.length > 0">
+          <table class="table table-sm table-striped align-middle">
+            <thead class="table-dark small">
+              <tr>
+                <th>Produto</th>
+                <th class="text-center">Qtd</th>
+                <th class="text-end">Unit.</th>
+                <th class="text-end">Subtotal</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let item of itensSelecionados">
+                <td class="text-uppercase">
+                  <div class="texto-duas-linhas" style="max-width: 280px; font-size: 0.75rem;" [title]="item.descricao">
+                    {{ item.descricao }}
+                  </div>
+                </td>
+                <td class="text-center small">{{ item.quantidade }}</td>
+                <td class="text-end small">{{ item.preco | currency:'BRL' }}</td>
+                <td class="text-end fw-bold" style="font-size: 0.85rem;">{{ (item.quantidade * item.preco) | currency:'BRL' }}</td>
+              </tr>
+            </tbody>
+            <tfoot>
+              <tr class="table-light">
+                <td colspan="3" class="text-end fw-bold text-uppercase small">Total:</td>
+                <td class="text-end fw-bold text-primary" style="font-size: 1.1rem;">
+                  {{ lancamentoSelecionado?.valor | currency:'BRL' }}
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+
+        <div *ngIf="itensSelecionados.length === 0" class="text-center py-4 text-muted small">
+          <i class="bi bi-info-circle me-1"></i> 
+          Nenhum detalhe encontrado para este lançamento.
+        </div>
+      </div>
+
+      <div class="modal-footer bg-light py-1">
+        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal" (click)="fecharModal()">Fechar</button>
+      </div>
+    </div>
+  </div>
+</div>

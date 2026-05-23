@@ -1,0 +1,206 @@
+:host {
+  display: block;
+  height: 100vh;
+  width: 100%;
+}
+
+.main-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  width: 100%;
+  background-color: #f0f2f5; /* Fundo suave da página */
+  font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+.login-box {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr; /* Esquerdo ligeiramente maior */
+  width: 900px;
+  height: 550px;
+  background-color: white;
+  border-radius: 20px; /* Bordas arredondadas da caixa */
+  box-shadow: 0 10px 30px rgba(0,0,0,0.1); /* Sombra suave */
+  overflow: hidden; /* Garante que o fundo roxo não saia */
+}
+
+/* --- PAINEL ROXO --- */
+.purple-panel {
+  background: linear-gradient(135deg, #7c4dff 0%, #6200ea 100%); /* Gradiente de roxo */
+  color: white;
+  padding: 60px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.bg-pattern {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0.6; /* Deixa as formas suaves */
+}
+
+.welcome-text {
+  position: relative; /* Fica acima do SVG */
+  z-index: 1;
+  max-width: 320px;
+}
+
+.welcome-text h1 {
+  font-size: 38px;
+  font-weight: 700;
+  letter-spacing: -1px; /* Deixa o título mais moderno */
+  margin-bottom: 15px;
+}
+
+.welcome-text p {
+  font-size: 16px;
+  line-height: 1.6;
+  font-weight: 300; /* Fonte mais fina para o parágrafo */
+  opacity: 0.85;
+}
+
+/* --- PAINEL BRANCO DO FORMULÁRIO --- */
+.form-panel {
+  padding: 60px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.form-panel h2 {
+  font-size: 36px;
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 40px;
+}
+
+.input-group {
+  position: relative;
+  margin-bottom: 20px;
+}
+
+.input-icon {
+  position: absolute;
+  left: 15px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #a0a0a0;
+  font-size: 18px;
+}
+
+.input-group input {
+  width: 100%;
+  padding: 15px 15px 15px 45px; /* Padding extra à esquerda para o ícone */
+  border: 1px solid #e0e0e0;
+  border-radius: 25px; /* Bordas arredondadas do input */
+  font-size: 16px;
+  color: #333;
+  transition: border-color 0.3s;
+}
+
+.input-group input:focus {
+  outline: none;
+  border-color: #7c4dff; /* Cor roxa ao focar */
+  box-shadow: 0 0 5px rgba(124, 77, 255, 0.2);
+}
+
+.input-group input::placeholder {
+  color: #ccc;
+}
+
+.form-options {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+  font-size: 14px;
+}
+
+.remember-me {
+  display: flex;
+  align-items: center;
+  color: #666;
+}
+
+.remember-me input {
+  margin-right: 8px;
+  cursor: pointer;
+}
+
+.remember-me label {
+  cursor: pointer;
+}
+
+.forgot-password {
+  color: #666;
+  text-decoration: none;
+}
+
+.forgot-password:hover {
+  text-decoration: underline;
+  color: #7c4dff;
+}
+
+.btn-sign-in {
+  width: 100%;
+  padding: 15px;
+  background-color: #7c4dff; /* Cor do botão */
+  color: white;
+  border: none;
+  border-radius: 25px; /* Bordas arredondadas do botão */
+  font-size: 18px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background-color 0.3s, transform 0.1s;
+}
+
+.btn-sign-in:hover {
+  background-color: #6200ea;
+}
+
+.btn-sign-in:active {
+  transform: scale(0.98); /* Efeito de clique */
+}
+
+.error-msg {
+  color: red;
+  text-align: center;
+  margin-top: 15px;
+  font-size: 14px;
+}
+
+.create-account {
+  text-align: center;
+  margin-top: 30px;
+  font-size: 14px;
+  color: #666;
+}
+
+.create-account a {
+  color: #7c4dff;
+  text-decoration: none;
+  font-weight: bold;
+  margin-left: 5px;
+}
+
+.create-account a:hover {
+  text-decoration: underline;
+}
+
+/* Responsividade Básica (para telas menores) */
+@media (max-width: 950px) {
+  .login-box {
+    width: 90%;
+    grid-template-columns: 1fr; /* Empilha em uma coluna */
+    height: auto;
+  }
+  .purple-panel {
+    display: none; /* Esconde o painel roxo em celular */
+  }
+}

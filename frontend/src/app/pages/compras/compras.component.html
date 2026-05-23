@@ -1,0 +1,188 @@
+<section class="compras-container">
+  <div class="row mb-4 px-3">
+    <div class="card p-3 border-0 shadow-sm bg-white">
+      <div class="row g-2 align-items-center">
+        <div class="col-md-3">
+          <div class="input-group">
+            <span class="input-group-text bg-white border-end-0"><i class="bi bi-pencil-square text-primary"></i></span>
+            <input type="text" class="form-control border-start-0" placeholder="Descrição (ex: Gasolina)" [(ngModel)]="novoLancamento.descricao">
+          </div>
+        </div>
+
+        <div class="col-md-2">
+          <div class="input-group">
+            <span class="input-group-text bg-white border-end-0">R$</span>
+            <input type="number" class="form-control border-start-0" placeholder="0,00" [(ngModel)]="novoLancamento.valor">
+          </div>
+        </div>
+
+        <div class="col-md-2">
+          <input type="date" class="form-control" [(ngModel)]="novoLancamento.dataEmissao">
+        </div>
+
+        <div class="col-md-3">
+          <select class="form-select" [(ngModel)]="novoLancamento.tipo">
+            <option value="Despesa">Despesa (Saída)</option>
+            <option value="Receita">Receita (Entrada)</option>
+          </select>
+        </div>
+
+        <div class="col-md-2">
+          <button class="btn btn-primary w-100" (click)="salvarLancamentoManual()">
+            <i class="bi bi-plus-lg"></i> Lançar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <hr class="my-4 opacity-25">
+
+  <h6 class="fw-bold mb-3 text-secondary">
+    <i class="bi bi-cart-fill text-primary"></i> Planejamento de Compra / Supermercado
+  </h6>
+
+  <div class="row mb-3">
+    <div class="col-md-6"> <label class="form-label fw-bold">Local / Supermercado <span class="text-danger">*</span></label>
+      <input type="text" 
+             class="form-control form-control-lg" 
+             [class.is-invalid]="tentouSalvar && !descricaoCompra"
+             [(ngModel)]="descricaoCompra" 
+             list="listaLocais" 
+             placeholder="Digite ou selecione o local...">
+
+      <div class="invalid-feedback" *ngIf="tentouSalvar && !descricaoCompra">
+        O nome do local é obrigatório para registrar a compra.
+      </div>
+
+      <datalist id="listaLocais">
+        <option *ngFor="let local of sugestoesLocais" [value]="local"></option>
+      </datalist>
+    </div>
+
+    <div class="col-md-3">
+      <label class="form-label fw-bold">Data da Compra</label>
+      <input type="date" class="form-control form-control-lg" [(ngModel)]="dataCompraPlanejada">
+    </div>
+
+    <div class="col-md-3">
+      <label class="form-label fw-bold">Limite (R$) <span class="text-danger">*</span></label>
+      <input type="number" 
+             class="form-control form-control-lg" 
+             [class.is-invalid]="tentouSalvar && (!limite || limite <= 0)"
+             [(ngModel)]="limite" 
+             (input)="calcularTotal()"
+             placeholder="0.00">
+      
+      <div class="invalid-feedback" *ngIf="tentouSalvar && (!limite || limite <= 0)">
+        Defina um limite para a compra.
+      </div>
+    </div>
+  </div>
+
+  <div class="monitor-saldo d-flex justify-content-between align-items-center mb-3">
+    <div class="saldo-item">
+      <span class="label">Total Atual:</span>
+      <span class="valor">{{ total | currency:'BRL' }}</span>
+    </div>
+
+    <div class="saldo-item text-end">
+      <span class="label">Disponível:</span>
+      <span class="valor-restante" [style.color]="saldoRestante < 0 ? '#e74c3c' : '#27ae60'">
+        {{ saldoRestante | currency:'BRL' }}
+      </span>
+    </div>
+  </div>
+
+  <div class="progress-bar-container mb-4" *ngIf="limite > 0">
+    <div class="progress-bar" 
+         [style.width.%]="porcentagemGasta > 100 ? 100 : porcentagemGasta"
+         [style.background-color]="porcentagemGasta > 90 ? '#e74c3c' : '#27ae60'">
+    </div>
+    <small class="porcentagem-texto">{{ porcentagemGasta | number:'1.0-0' }}% do limite gasto</small>
+  </div>
+
+  <div class="tabela-compras">
+    <div class="legenda-compras">
+      <span class="col-check"></span>
+      <span class="col-nome">Item / Categoria</span>
+      <span class="col-qtd text-center">Qtd / Medida</span>
+      <span class="col-preco">Preço Unit. (R$)</span>
+      <span class="col-subtotal">Subtotal</span>
+    </div>
+
+    <div class="linhas-fixas">
+      @for (item of itens; track $index; let i = $index) {
+        <div class="item-linha" [class.comprado]="item.comprado">
+          <div class="col-check">
+            <input type="checkbox" [(ngModel)]="item.comprado">
+          </div>
+          
+          <div class="col-nome">
+            <div class="d-flex align-items-center gap-2 w-100">
+              <input type="text" 
+                     class="form-control" 
+                     [(ngModel)]="item.descricao" 
+                     [placeholder]="'Item ' + (i + 1)" 
+                     style="height: 38px;"> 
+              
+              <select class="form-select seletor-categoria-item" 
+                      [(ngModel)]="item.categoria" 
+                      style="flex: 1; min-width: 110px; height: 38px;"> 
+                <option *ngFor="let cat of listaCategoriasItens" [value]="cat">{{ cat }}</option>
+              </select>
+            </div>
+          </div>
+          
+          <div class="col-qtd">
+  <div class="input-group input-group-sm">
+    <input type="number" class="form-control" [(ngModel)]="item.quantidade" (input)="calcularTotal()">
+    
+    <select class="form-select" [(ngModel)]="item.unidade" style="max-width: 65px; font-size: 0.8rem;">
+      <option value="un">un</option>
+      <option value="kg">kg</option>
+      <option value="lt">lt</option>
+      <option value="cx">cx</option>
+    </select>
+    
+  </div>
+</div>
+
+          <div class="col-preco">
+            <input type="number" class="form-control" [(ngModel)]="item.preco" placeholder="0.00" (input)="calcularTotal()">
+          </div>
+          <div class="col-subtotal">
+            {{ (item.quantidade * (item.preco || 0)) | currency:'BRL' }}
+          </div>
+        </div>
+      }
+    </div>
+  </div>
+
+  <div class="comparativo-card my-4">
+    <div class="info-anterior">
+      <small>Última Compra:</small>
+      <strong class="valor-anterior">{{ compraAnterior.valor | currency:'BRL' }}</strong>
+      <span class="local-anterior">no {{ compraAnterior.local }}</span>
+    </div>
+
+    <div class="indicator-diferenca" [class.texto-vermelho]="diferencaValor > 0" [class.texto-verde]="diferencaValor <= 0">
+      <span class="seta">{{ diferencaValor > 0 ? '▲' : '▼' }}</span>
+      <div class="valores-comparativos">
+        <strong class="valor-principal">{{ (diferencaValor < 0 ? -diferencaValor : diferencaValor) | currency:'BRL' }}</strong>
+        <small class="status-texto">{{ statusComparativo }}</small>
+      </div>
+    </div>
+  </div>
+
+  <div class="d-flex justify-content-start gap-2 mt-4 pb-5">
+    <button class="btn btn-outline-secondary flex-grow-1" (click)="inicializarLinhas()">Limpar Lista</button>
+    
+    <button class="btn btn-primary" (click)="fileInputBottom.click()">
+      <i class="bi bi-file-earmark-pdf-fill"></i> Importar PDF
+    </button>
+    <input type="file" #fileInputBottom (change)="aoSelecionarArquivo($event)" accept="application/pdf" hidden>
+
+    <button class="btn btn-success flex-grow-2" (click)="salvarCompra()">Finalizar e Lançar no Financeiro</button>
+  </div>
+</section>
