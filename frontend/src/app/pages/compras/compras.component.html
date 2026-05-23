@@ -1,5 +1,12 @@
 <section class="compras-container">
   <div class="row mb-4 px-3">
+    <div class="d-flex align-items-center mb-2 ps-1">
+      <i class="bi bi-plus-circle-fill text-primary me-2"></i>
+      <small class="text-secondary fw-bold text-uppercase" style="letter-spacing: 0.5px; font-size: 0.75rem;">
+        Lançamento Rápido Avulso
+      </small>
+    </div>
+
     <div class="card p-3 border-0 shadow-sm bg-white">
       <div class="row g-2 align-items-center">
         <div class="col-md-3">
@@ -43,7 +50,8 @@
   </h6>
 
   <div class="row mb-3">
-    <div class="col-md-6"> <label class="form-label fw-bold">Local / Supermercado <span class="text-danger">*</span></label>
+    <div class="col-md-6"> 
+      <label class="form-label fw-bold">Local / Supermercado <span class="text-danger">*</span></label>
       <input type="text" 
              class="form-control form-control-lg" 
              [class.is-invalid]="tentouSalvar && !descricaoCompra"
@@ -135,22 +143,22 @@
           </div>
           
           <div class="col-qtd">
-  <div class="input-group input-group-sm">
-    <input type="number" class="form-control" [(ngModel)]="item.quantidade" (input)="calcularTotal()">
-    
-    <select class="form-select" [(ngModel)]="item.unidade" style="max-width: 65px; font-size: 0.8rem;">
-      <option value="un">un</option>
-      <option value="kg">kg</option>
-      <option value="lt">lt</option>
-      <option value="cx">cx</option>
-    </select>
-    
-  </div>
-</div>
+            <div class="input-group input-group-sm">
+              <input type="number" class="form-control" [(ngModel)]="item.quantidade" (input)="calcularTotal()">
+              
+              <select class="form-select" [(ngModel)]="item.unidade" style="max-width: 65px; font-size: 0.8rem;">
+                <option value="un">un</option>
+                <option value="kg">kg</option>
+                <option value="lt">lt</option>
+                <option value="cx">cx</option>
+              </select>
+            </div>
+          </div>
 
           <div class="col-preco">
             <input type="number" class="form-control" [(ngModel)]="item.preco" placeholder="0.00" (input)="calcularTotal()">
           </div>
+          
           <div class="col-subtotal">
             {{ (item.quantidade * (item.preco || 0)) | currency:'BRL' }}
           </div>

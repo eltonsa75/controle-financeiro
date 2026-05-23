@@ -5,36 +5,34 @@
 
   <ul class="nav nav-pills flex-column mb-auto">
     <li class="nav-item">
-      <a routerLink="/dashboard" routerLinkActive="active" class="nav-link text-white">
-        <i class="bi bi-speedometer2 me-2"></i> Dashboard
+      <a routerLink="/dashboard" routerLinkActive="active" class="nav-link text-white d-flex align-items-center">
+        <i class="bi bi-grid-1x2-fill me-2"></i> Dashboard
       </a>
     </li>
-    <li>
-      <a routerLink="/compras" routerLinkActive="active" class="nav-link text-white">
-        <i class="bi bi-cart me-2"></i> Compras / PDF
+    
+    <li class="nav-item">
+      <a routerLink="/compras" routerLinkActive="active" class="nav-link text-white d-flex align-items-center">
+        <i class="bi bi-file-earmark-pdf me-2"></i> Compras / PDF
       </a>
     </li>
-    <li>
-      <a routerLink="/lancamentos" routerLinkActive="active" class="nav-link text-white">
-        <i class="bi bi-list-ul me-2"></i> Lançamentos
+    
+    <li class="nav-item">
+       <a routerLink="/lista" routerLinkActive="active" class="nav-link text-white d-flex align-items-center">
+        <i class="bi bi-card-list me-2"></i> Lançamentos
       </a>
     </li>
-    <li>
-  <a routerLink="/categorias" routerLinkActive="active" class="nav-link text-white">
-    <i class="bi bi-tags me-2"></i> Categorias
-  </a>
-</li>
-<li>
-  <a routerLink="/lista" routerLinkActive="active" class="nav-link text-white">
-    <i class="bi bi-view-list me-2"></i> Lista de Lançamentos
-  </a>
-</li>
+    
+    <li class="nav-item">
+      <a routerLink="/categorias" routerLinkActive="active" class="nav-link text-white d-flex align-items-center">
+        <i class="bi bi-tags me-2"></i> Categorias
+      </a>
+    </li>
   </ul>
 
   <hr class="text-white opacity-25">
   
   <div class="logout">
-    <button class="btn btn-link text-white text-decoration-none p-0" (click)="logout()">
+    <button class="btn btn-link text-white text-decoration-none p-0 d-flex align-items-center" (click)="logout()">
       <i class="bi bi-box-arrow-left me-2"></i> Sair
     </button>
   </div>

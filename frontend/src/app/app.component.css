@@ -1,0 +1,21 @@
+.wrapper-layout {
+  display: flex;
+  min-height: 100vh;
+  width: 100%;
+  background-color: #f8f9fa; /* Garante o fundo claro padrão do sistema */
+  overflow: hidden;
+}
+
+/* O PULO DO GATO: Força a tag do Angular a se comportar como um bloco real */
+app-sidebar {
+  display: block;
+  height: 100vh;
+  flex-shrink: 0; /* Impede que o dashboard "esmague" a largura da sidebar */
+}
+
+.content-container {
+  flex-grow: 1;
+  height: 100vh;
+  overflow-y: auto; /* Se o dashboard for grande, só ele vai ter barra de rolagem */
+  padding: 0;
+}

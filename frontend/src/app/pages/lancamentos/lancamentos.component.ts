@@ -49,16 +49,22 @@ carregarLancamentos(): void {
   }
 
   // Função para o botão "Nova Receita/Despesa"
-  adicionarLinha(tipo: string): void {
-    this.listaLancamentos.push({
-      id: 0,
-      descricao: '',
-      valor: 0,
-      tipo: tipo,
-      categoriaId: null,
-      data: new Date().toISOString().substring(0, 10)
-    });
-  }
+adicionarLinha(tipo: string): void {
+  const dataAtual = new Date().toISOString();
+
+  this.listaLancamentos.push({
+    id: 0,
+    descricao: '',
+    valor: 0,
+    tipo: tipo,
+    categoriaId: 0, // Mudado de null para 0 para bater com o tipo number do JSON
+    data: dataAtual,
+    dataEmissao: dataAtual,
+    dataImportacao: dataAtual,
+    categoria: null, // Pode ir nulo, pois a API usa o categoriaId para associar
+    itens: []        // Inicia como um array vazio para os itens manuais
+  });
+}
 
   // Corrigindo o erro de 'remover' que o HTML pediu
   remover(id: number): void {
@@ -72,15 +78,27 @@ carregarLancamentos(): void {
     }
   }
 
-  // Corrigindo o erro de 'salvarTudo'
-  salvarTudo(): void {
-    console.log('Salvando todos:', this.listaLancamentos);
-    // Aqui você pode fazer um loop salvando cada um ou criar um endpoint de lote na API
-    this.listaLancamentos.forEach(item => {
-      this.lancamentoService.salvar(item).subscribe();
+
+salvarTudo(): void {
+  console.log('Salvando todos:', this.listaLancamentos);
+  
+  this.listaLancamentos.forEach(item => {
+    // Tratamento do valor (Task 1)
+    if (item.valor && typeof item.valor === 'string') {
+      item.valor = item.valor.replace(',', '.');
+    }
+    item.valor = parseFloat(item.valor) || 0;
+
+    // Envia para a API
+    this.lancamentoService.salvar(item).subscribe({
+      next: (res) => console.log(`Item ${item.descricao} salvo!`, res),
+      error: (err) => console.error(`Erro ao salvar ${item.descricao}:`, err)
     });
-    alert('Lançamentos processados!');
-  }
+  });
+  
+  alert('Lançamentos processados!');
+  this.carregarLancamentos(); 
+}
 
   // Função auxiliar para o *ngIf do HTML
   temTipo(tipo: string): boolean {

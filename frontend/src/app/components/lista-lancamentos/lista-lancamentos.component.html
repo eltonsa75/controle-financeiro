@@ -104,7 +104,7 @@
           </h4>
           
           <div class="text-white-50 texto-duas-linhas small mt-1" style="font-size: 0.75rem; line-height: 1.1;">
-            {{ lancamentoSelecionado.descricao.split(' - ')[1] || 'Endereço não identificado' }}
+            {{ lancamentoSelecionado.descricao.includes(' - ') ? lancamentoSelecionado.descricao.split(' - ')[1] : 'Lançamento Manual Rápido' }}
           </div>
         </div>
         
@@ -149,9 +149,29 @@
           </table>
         </div>
 
-        <div *ngIf="itensSelecionados.length === 0" class="text-center py-4 text-muted small">
-          <i class="bi bi-info-circle me-1"></i> 
-          Nenhum detalhe encontrado para este lançamento.
+        <div *ngIf="itensSelecionados.length === 0" class="text-center py-5">
+          <div class="mb-3">
+            <i class="bi bi-lightning-charge-fill text-warning display-4"></i>
+          </div>
+          <h5 class="fw-bold text-dark mb-1">{{ lancamentoSelecionado?.descricao }}</h5>
+          <p class="text-muted small mb-4">Esta movimentação foi consolidada como um gasto direto avulso.</p>
+          
+          <div class="row g-3 justify-content-center mx-auto" style="max-width: 450px;">
+            <div class="col-6">
+              <div class="p-3 bg-light rounded border-0 shadow-sm text-center">
+                <small class="text-secondary d-block text-uppercase fw-bold mb-1" style="font-size: 0.65rem; letter-spacing: 0.5px;">Valor Total</small>
+                <strong class="text-dark fs-5">{{ lancamentoSelecionado?.valor | currency:'BRL' }}</strong>
+              </div>
+            </div>
+            <div class="col-6">
+              <div class="p-3 bg-light rounded border-0 shadow-sm text-center">
+                <small class="text-secondary d-block text-uppercase fw-bold mb-1" style="font-size: 0.65rem; letter-spacing: 0.5px;">Categoria</small>
+                <span class="badge bg-primary d-inline-block mt-1" style="font-size: 0.75rem; padding: 5px 10px;">
+                  <i class="bi bi-tag-fill me-1"></i> {{ lancamentoSelecionado?.categoria?.nome || 'Geral' }}
+                </span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
