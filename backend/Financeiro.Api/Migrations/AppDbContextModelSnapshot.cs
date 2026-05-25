@@ -147,6 +147,45 @@ namespace Financeiro.Api.Migrations
                     b.ToTable("Lancamentos");
                 });
 
+            modelBuilder.Entity("FinanceiroApi.Models.Estoque", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("CategoriaId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Nome")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<decimal>("QuantidadeAtual")
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<decimal>("QuantidadeMinima")
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<string>("UnidadeMedida")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("varchar(10)");
+
+                    b.Property<string>("UsuarioId")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CategoriaId");
+
+                    b.ToTable("Estoque");
+                });
+
             modelBuilder.Entity("Financeiro.Api.Models.ItemLancamento", b =>
                 {
                     b.HasOne("Financeiro.Api.Models.Lancamento", "Lancamento")
@@ -164,6 +203,17 @@ namespace Financeiro.Api.Migrations
                         .WithMany("Lancamentos")
                         .HasForeignKey("CategoriaId")
                         .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Categoria");
+                });
+
+            modelBuilder.Entity("FinanceiroApi.Models.Estoque", b =>
+                {
+                    b.HasOne("Financeiro.Api.Models.Categoria", "Categoria")
+                        .WithMany()
+                        .HasForeignKey("CategoriaId")
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("Categoria");

@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { CategoriaService, CategoriaStatus } from '../../services/services/categoria.service';
+import Swal from 'sweetalert2'; // 🎯 Importação do SweetAlert2
 
 // Declaração global para o Bootstrap abrir/fechar modais via código
 declare var bootstrap: any;
@@ -17,12 +18,16 @@ export class CategoriasComponent implements OnInit {
 
   categorias: CategoriaStatus[] = [];
   formCategoria: FormGroup;
+  
+  // 🎯 NOVO: Controle de estado da visão atual (Mensal vs Anual)
+  visaoAtual: 'mensal' | 'anual' = 'mensal';
 
   constructor(private fb: FormBuilder, private categoriaService: CategoriaService) {
     this.formCategoria = this.fb.group({
       id: [null],
       nome: ['', Validators.required],
-      metaMensal: [0, [Validators.required, Validators.min(1)]],
+      // Mínimo alterado para 0 para permitir categorias sem meta definida
+      metaMensal: [0, [Validators.required, Validators.min(0)]], 
       corHex: ['#007bff'],
       palavrasChave: ['']
     });
@@ -37,7 +42,8 @@ export class CategoriasComponent implements OnInit {
     const mes = data.getMonth() + 1;
     const ano = data.getFullYear();
 
-    this.categoriaService.listarComStatus(mes, ano)
+    // 🎯 AJUSTADO: Passando o parâmetro 'visaoAtual' para o service carregar mensal ou anual dinamicamente
+    this.categoriaService.listarComStatus(mes, ano, this.visaoAtual)
       .subscribe({
         next: (dados: CategoriaStatus[]) => {
           this.categorias = dados;
@@ -46,8 +52,14 @@ export class CategoriasComponent implements OnInit {
       });
   }
 
+  // 🎯 NOVO: Altera entre a visão Mensal/Anual e dispara uma nova requisição automática
+  alterarVisao(novaVisao: 'mensal' | 'anual'): void {
+    this.visaoAtual = novaVisao;
+    this.carregarCategorias();
+  }
+
   abrirModalNovaCategoria(): void {
-    // Resetamos o formulário para garantir que o ID seja null (novo registro)
+    // Resetamos o formulário limpando os resquícios de edições anteriores
     this.formCategoria.reset({ 
       id: null, 
       corHex: '#007bff', 
@@ -60,7 +72,7 @@ export class CategoriasComponent implements OnInit {
   }
 
   editar(categoria: CategoriaStatus): void {
-    // Preenche o formulário com os dados existentes
+    // Preenche o formulário reativo com o card selecionado automaticamente
     this.formCategoria.patchValue(categoria);
     this.exibirModal();
   }
@@ -69,36 +81,83 @@ export class CategoriasComponent implements OnInit {
     if (this.formCategoria.valid) {
       const formValues = this.formCategoria.value;
 
+      // Monta o objeto limpando referências nulas e preparando o ID e tipagem para o C#
       const categoriaParaEnviar = {
+        id: formValues.id && formValues.id > 0 ? formValues.id : 0,
         nome: formValues.nome,
         metaMensal: formValues.metaMensal,
         corHex: formValues.corHex,
         palavrasChave: formValues.palavrasChave,
-        usuarioId: "1", // ID fixo conforme sua necessidade atual
-        ...(formValues.id && formValues.id > 0 ? { id: formValues.id } : {})
+        usuarioId: '' // Mantém o TypeScript feliz e em conformidade com o C#
       };
+
+      // Abre o loading para evitar múltiplos cliques no botão de salvar
+      Swal.fire({
+        title: 'Salvando alterações...',
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading()
+      });
 
       this.categoriaService.salvar(categoriaParaEnviar).subscribe({
         next: () => {
           this.carregarCategorias();
           this.fecharModal();
-          this.formCategoria.reset({ corHex: '#007bff', metaMensal: 0 });
+          
+          // Toast de sucesso rápido para o usuário
+          Swal.fire({
+            icon: 'success',
+            title: formValues.id ? 'Categoria Atualizada!' : 'Categoria Criada!',
+            timer: 1500,
+            showConfirmButton: false
+          });
         },
         error: (err) => {
+          Swal.close();
           console.error('Erro ao salvar:', err);
+          Swal.fire('Erro no Servidor', 'Não foi possível salvar as alterações da categoria.', 'error');
           if (err.error?.errors) console.table(err.error.errors);
         }
       });
+    } else {
+      Swal.fire('Atenção', 'Por favor, preencha os campos obrigatórios corretamente.', 'warning');
     }
   }
 
-  excluir(id: number | undefined): void {
-    if (id && confirm('Deseja realmente excluir esta categoria?')) {
-      this.categoriaService.excluir(id).subscribe({
-        next: () => this.carregarCategorias(),
-        error: (err) => console.error('Erro ao excluir:', err)
-      });
-    }
+  // Substituído o confirm do navegador pelo modal premium do SweetAlert2
+  excluir(id: number | undefined, nome: string): void {
+    if (!id) return;
+
+    Swal.fire({
+      title: 'Tem certeza?',
+      text: `Você vai excluir a categoria "${nome}". Isso pode impactar os lançamentos associados a ela!`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Sim, excluir!',
+      cancelButtonText: 'Cancelar'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        
+        this.categoriaService.excluir(id).subscribe({
+          next: () => {
+            this.carregarCategorias();
+            Swal.fire({
+              icon: 'success',
+              title: 'Excluída!',
+              text: 'A categoria foi removida com sucesso.',
+              timer: 1500,
+              showConfirmButton: false
+            });
+          },
+          error: (err) => {
+            console.error('Erro ao excluir:', err);
+            Swal.fire('Erro', 'Não foi possível remover a categoria. Verifique se há dependências.', 'error');
+          }
+        });
+
+      }
+    });
   }
 
   // --- MÉTODOS AUXILIARES PARA O BOOTSTRAP ---

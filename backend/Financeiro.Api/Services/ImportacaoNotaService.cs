@@ -64,24 +64,69 @@ namespace FinanceiroApi.Services
                     Console.WriteLine($"[CLASSIFICAÇÃO] Produto: {item.Descricao} -> Categoria: {item.Categoria}");
                 }
 
-                // ========== CLASSIFICAÇÃO DA NOTA POR PRODUTOS ==========
-                var listaItens = lancamento.Itens.ToList();
-                string categoriaNota = ClassificarNotaPorItens(listaItens);
+                // ========== 🎯 NOVA CLASSIFICAÇÃO DA NOTA MULTI-CAMADAS ==========
 
-                // Busca a categoria no banco de dados
-                var categoria = await _context.Categorias
-                    .FirstOrDefaultAsync(c => c.Nome == categoriaNota && c.UsuarioId == userId);
+                // 1. Busca todas as categorias reais do usuário logado direto no MySQL
+                var categoriasDoUsuario = await _context.Categorias
+                    .Where(c => c.UsuarioId == userId)
+                    .ToListAsync();
 
-                if (categoria != null)
+                string textoParaMapear = (lancamento.Descricao + " " + textoLimpo).ToLower();
+                Categoria categoriaFinal = null;
+
+                // ESTRATÉGIA A: Busca por Palavras-Chave configuradas na tabela do Banco (Mais inteligente para o BI)
+                foreach (var cat in categoriasDoUsuario)
                 {
-                    lancamento.CategoriaId = categoria.Id;
-                    lancamento.Tipo = categoriaNota.ToLower();
-                    Console.WriteLine($"[CLASSIFICAÇÃO NOTA] Categoria: {categoriaNota} (ID: {categoria.Id})");
+                    if (!string.IsNullOrEmpty(cat.PalavrasChave))
+                    {
+                        var palavras = cat.PalavrasChave.Split(',', StringSplitOptions.RemoveEmptyEntries);
+                        if (palavras.Any(p => textoParaMapear.Contains(p.Trim().ToLower())))
+                        {
+                            categoriaFinal = cat;
+                            break; // Achou o match perfeito pelo banco, interrompe o laço
+                        }
+                    }
+                }
+
+                // ESTRATÉGIA B (Fallback): Se não achou palavra-chave, faz o de-para dos itens internos do código
+                if (categoriaFinal == null)
+                {
+                    var listaItens = lancamento.Itens.ToList();
+                    string categoriaNotaSub = ClassificarNotaPorItens(listaItens); // Ex: "Mercearia", "Limpeza"
+
+                    // Traduz os subgrupos internos para os nomes reais de categoria que você usa no banco
+                    string nomeAlvo = categoriaNotaSub switch
+                    {
+                        "Mercearia" or "Laticínios e Frios" or "Hortifruti" or "Snacks e Doces" or "Padaria" or "Acougue" => "Mercado",
+                        "Limpeza" or "Higiene e Saúde" => "Saude",
+                        "Educacao" => "Educação",
+                        _ => "Geral"
+                    };
+
+                    // Busca uma categoria no banco que contenha o nome alvo
+                    categoriaFinal = categoriasDoUsuario.FirstOrDefault(c =>
+                        c.Nome.ToLower().Contains(nomeAlvo.ToLower()) ||
+                        nomeAlvo.ToLower().Contains(c.Nome.ToLower()));
+                }
+
+                // 2. Aplica o ID da categoria encontrada ou usa um Fallback seguro de despesa (evitando o ID 1 de Receitas)
+                if (categoriaFinal != null)
+                {
+                    lancamento.CategoriaId = categoriaFinal.Id;
+                    Console.WriteLine($"[CLASSIFICAÇÃO NOTA] Categoria Definida dinamicamente: {categoriaFinal.Nome} (ID: {categoriaFinal.Id})");
                 }
                 else
                 {
-                    Console.WriteLine($"[CLASSIFICAÇÃO NOTA] Categoria '{categoriaNota}' não encontrada. Usando padrão (ID: 1)");
+                    // Tenta achar uma de despesas gerais, se não houver, evita o ID 1 se ele for Receita
+                    var fallbackDespesa = categoriasDoUsuario.FirstOrDefault(c => c.Nome.Contains("Geral") || c.Nome.Contains("Outros"))
+                                          ?? categoriasDoUsuario.FirstOrDefault(c => c.Id != 1);
+
+                    lancamento.CategoriaId = fallbackDespesa?.Id ?? 1;
+                    Console.WriteLine($"[CLASSIFICAÇÃO NOTA] Categoria não identificada. Usando Fallback ID: {lancamento.CategoriaId}");
                 }
+
+                // 🎯 CORREÇÃO CRÍTICA: Mantém o Tipo estritamente como "despesa" para não corromper os gráficos do BI
+                lancamento.Tipo = "despesa";
 
                 // Calcula soma dos itens
                 decimal somaItens = lancamento.Itens.Any()
@@ -91,13 +136,13 @@ namespace FinanceiroApi.Services
                 // Extrai valor pago - busca em TODO o texto
                 decimal valorPago = ExtrairValorPago(textoBruto, somaItens);
 
-                // Define o valor final do lançamento
+                // Define o valor final do lançamento (forçando negativo por ser despesa)
                 lancamento.Valor = -Math.Abs(valorPago > 0 ? valorPago : somaItens);
                 lancamento.DataImportacao = DateTime.Now;
 
                 Console.WriteLine($"[FINAL] Data Emissão: {lancamento.DataEmissao:dd/MM/yyyy}");
                 Console.WriteLine($"[FINAL] Descricao: {lancamento.Descricao}");
-                Console.WriteLine($"[FINAL] Categoria Nota: {categoriaNota}");
+                Console.WriteLine($"[FINAL] Categoria Nota: {(categoriaFinal?.Nome ?? "Padrão")}");
                 Console.WriteLine($"[FINAL] Soma Itens: {somaItens:C} | Valor Pago: {lancamento.Valor:C} | Itens: {lancamento.Itens.Count}");
             }
 
@@ -106,7 +151,7 @@ namespace FinanceiroApi.Services
             await _context.SaveChangesAsync();
             await _context.Entry(lancamento).Reference(l => l.Categoria).LoadAsync();
 
-            return lancamento;  // <--- ESTA LINHA É ESSENCIAL
+            return lancamento;
         }
 
         private void ExtrairDataDoPdf(string textoBruto, Lancamento lancamento)
@@ -147,7 +192,6 @@ namespace FinanceiroApi.Services
                 {
                     if (DateTime.TryParseExact(matchDataHora.Groups[1].Value, "dd/MM/yyyy", _culturaBr, DateTimeStyles.None, out dataEmissao))
                     {
-                        // Verifica se a data não é muito recente
                         if (dataEmissao < DateTime.Now.AddDays(-1))
                         {
                             dataEncontrada = true;
@@ -189,7 +233,6 @@ namespace FinanceiroApi.Services
 
         private decimal ExtrairValorPago(string texto, decimal somaItens)
         {
-            // Tenta encontrar "Valor pago R$: 698,92"
             var matchValorPago = Regex.Match(texto, @"Valor\s+pago\s+R?\$?:?\s*(\d+,\d{2})", RegexOptions.IgnoreCase);
             if (matchValorPago.Success)
             {
@@ -198,7 +241,6 @@ namespace FinanceiroApi.Services
                 return valor;
             }
 
-            // Tenta encontrar "Valor a pagar R$: 698,92"
             var matchValorAPagar = Regex.Match(texto, @"Valor\s+a\s+pagar\s+R?\$?:?\s*(\d+,\d{2})", RegexOptions.IgnoreCase);
             if (matchValorAPagar.Success)
             {
@@ -207,7 +249,6 @@ namespace FinanceiroApi.Services
                 return valor;
             }
 
-            // Tenta encontrar "Total: R$ 698,92"
             var matchTotal = Regex.Match(texto, @"(?:Total|TOTAL)\s*:?\s*R?\$?\s*(\d+,\d{2})", RegexOptions.IgnoreCase);
             if (matchTotal.Success)
             {
@@ -219,7 +260,6 @@ namespace FinanceiroApi.Services
                 }
             }
 
-            // Tenta encontrar "Valor total R$: 698,92"
             var matchValorTotal = Regex.Match(texto, @"Valor\s+total\s*:?\s*R?\$?\s*(\d+,\d{2})", RegexOptions.IgnoreCase);
             if (matchValorTotal.Success)
             {
@@ -231,7 +271,6 @@ namespace FinanceiroApi.Services
                 }
             }
 
-            // Tenta encontrar "LÍQUIDO R$: 698,92"
             var matchLiquido = Regex.Match(texto, @"L[ÍI]QUIDO\s*:?\s*R?\$?\s*(\d+,\d{2})", RegexOptions.IgnoreCase);
             if (matchLiquido.Success)
             {
@@ -243,24 +282,20 @@ namespace FinanceiroApi.Services
                 }
             }
 
-            // Fallback: pega o último número da nota
             var matches = Regex.Matches(texto, @"\d+,\d{2}");
             int totalMatches = matches.Count;
 
             if (totalMatches >= 1)
             {
-                // Pega o último número (geralmente o total)
                 string ultimoNumero = matches[totalMatches - 1].Value;
                 decimal valor = ConverterParaDecimal(ultimoNumero, _culturaBr);
 
-                // Verifica se é um valor plausível
                 if (valor > 0 && valor <= somaItens + 100)
                 {
                     Console.WriteLine($"[VALOR PAGO] Fallback - último número: R$ {valor:F2}");
                     return valor;
                 }
 
-                // Se o último não funcionar, tenta o penúltimo
                 if (totalMatches >= 2)
                 {
                     string penultimoNumero = matches[totalMatches - 2].Value;
@@ -277,11 +312,8 @@ namespace FinanceiroApi.Services
             return somaItens;
         }
 
-        // ==================== LÓGICA DE DATA INTELIGENTE ====================
-
         private DateTime ExtrairDataDaString(string texto)
         {
-            // Tenta encontrar "Emissão: dd/mm/yyyy"
             var matchEmissao = Regex.Match(texto, @"(?:Emissão|Data|Apresentação):\s*(?<data>\d{2}/\d{2}/\d{4})", RegexOptions.IgnoreCase);
 
             if (matchEmissao.Success && DateTime.TryParseExact(matchEmissao.Groups["data"].Value, "dd/MM/yyyy", _culturaBr, DateTimeStyles.None, out var dataReal))
@@ -289,7 +321,6 @@ namespace FinanceiroApi.Services
                 return dataReal;
             }
 
-            // Busca todas as datas e ignora a de hoje (provável data de impressão)
             var todasDatas = Regex.Matches(texto, @"(\d{2}/\d{2}/\d{4})");
             for (int i = todasDatas.Count - 1; i >= 0; i--)
             {
@@ -302,11 +333,8 @@ namespace FinanceiroApi.Services
             return DateTime.Now;
         }
 
-        // ==================== LÓGICA DE VALOR COM PROVA REAL ====================
-
         private decimal ExtrairValorLiquidoComProvaReal(string texto, decimal somaItens)
         {
-            // Captura todos os números monetários (0,00)
             var matches = Regex.Matches(texto, @"(?<val>\d+,\d{2})");
             var listaValores = matches.Cast<Match>().Select(m => m.Groups["val"].Value).ToList();
 
@@ -316,16 +344,13 @@ namespace FinanceiroApi.Services
             {
                 decimal candidato = ConverterParaDecimal(valorTexto, _culturaBr);
 
-                // Ignora se for a própria soma bruta
                 if (Math.Abs(candidato - somaItens) < 0.01m) continue;
 
-                // A PROVA REAL: (Soma Bruta - Valor Pago) deve ser igual ao Desconto que também está na nota
                 decimal diferenca = Math.Abs(somaItens - candidato);
                 string diferencaTexto = diferenca.ToString("N2", _culturaBr);
 
                 if (diferenca > 0 && listaValores.Contains(diferencaTexto))
                 {
-                    // O valor pago é o maior do par (Ex: 92,39 vs 26,89)
                     decimal possivelTotal = Math.Max(candidato, diferenca);
                     if (possivelTotal > maiorValorConfirmado) maiorValorConfirmado = possivelTotal;
                 }
@@ -333,8 +358,6 @@ namespace FinanceiroApi.Services
 
             return maiorValorConfirmado > 0 ? maiorValorConfirmado : somaItens;
         }
-
-        // ==================== CLASSIFICAÇÃO AUTOMÁTICA ====================
 
         private string ClassificarAutomaticamente(string nomeProduto)
         {
@@ -374,8 +397,6 @@ namespace FinanceiroApi.Services
             return categoriasContagem;
         }
 
-        // ==================== PROCESSAMENTO DO ESTABELECIMENTO ====================
-
         private void ProcessarEstabelecimentoPdf(string textoBruto, Lancamento lancamento)
         {
             string texto = textoBruto.ToUpper();
@@ -405,8 +426,6 @@ namespace FinanceiroApi.Services
             var match = Regex.Match(texto, @"(?<tipo>RUA|AV|AVENIDA|ALAMEDA)\s+(?<nome>[^,]+),\s*(?<num>\d+)", RegexOptions.IgnoreCase);
             return match.Success ? $"{match.Groups["tipo"].Value} {match.Groups["nome"].Value}, {match.Groups["num"].Value}" : "";
         }
-
-        // ==================== PROCESSAMENTO DOS ITENS ====================
 
         private List<ItemLancamento> ProcessarItensDoPdf(string textoUmaLinha, string descricao)
         {

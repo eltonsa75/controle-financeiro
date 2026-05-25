@@ -1,0 +1,223 @@
+<div class="container mt-4">
+  
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h2 class="fw-bold mb-0">📦 Controle de Estoque & Despensa</h2>
+      <p class="text-muted mb-0">Gerencie os suprimentos da sua casa e evite compras duplicadas no supermercado.</p>
+    </div>
+    <button class="btn btn-primary shadow-sm" (click)="abrirModalNovoItem()">
+      <i class="bi bi-plus-lg"></i> Adicionar Novo Item
+    </button>
+  </div>
+
+  <div class="row mb-4">
+    <div class="col-md-4">
+      <div class="card shadow-sm border-0 bg-light text-dark cp" 
+           [ngClass]="{'border-bottom border-primary border-4': filtroStatus === 'todos'}"
+           (click)="alterarFiltroStatus('todos')" style="cursor: pointer;">
+        <div class="card-body d-flex align-items-center justify-content-between">
+          <div>
+            <h6 class="text-muted text-uppercase small fw-bold mb-1">Total de Itens</h6>
+            <h3 class="fw-bold mb-0">{{ totalItens }}</h3>
+          </div>
+          <div class="fs-1 text-primary"><i class="bi bi-box-seam"></i></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="card shadow-sm border-0 bg-light text-dark cp"
+           [ngClass]="{'border-bottom border-success border-4': filtroStatus === 'abastecido'}"
+           (click)="alterarFiltroStatus('abastecido')" style="cursor: pointer;">
+        <div class="card-body d-flex align-items-center justify-content-between">
+          <div>
+            <h6 class="text-muted text-uppercase small fw-bold mb-1">Abastecidos</h6>
+            <h3 class="fw-bold text-success mb-0">{{ totalAbastecidos }}</h3>
+          </div>
+          <div class="fs-1 text-success"><i class="bi bi-check-circle-fill"></i></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="card shadow-sm border-0 bg-light text-dark cp"
+           [ngClass]="{'border-bottom border-danger border-4': filtroStatus === 'critico'}"
+           (click)="alterarFiltroStatus('critico')" style="cursor: pointer;">
+        <div class="card-body d-flex align-items-center justify-content-between">
+          <div>
+            <h6 class="text-muted text-uppercase small fw-bold mb-1">Faltando / Críticos</h6>
+            <h3 class="fw-bold text-danger mb-0">{{ totalCriticos }}</h3>
+          </div>
+          <div class="fs-1 text-danger"><i class="bi bi-exclamation-triangle-fill"></i></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card shadow-sm border-0 mb-4 bg-white">
+    <div class="card-body">
+      <div class="input-group">
+        <span class="input-group-text bg-white border-end-0 text-muted">
+          <i class="bi bi-search"></i>
+        </span>
+        <input type="text" 
+               class="form-control border-start-0" 
+               placeholder="Pesquise por um item na despensa (ex: Feijão, Sabão, Arroz...)" 
+               [value]="filtroTexto"
+               (input)="aoDigitarBusca($event)">
+      </div>
+    </div>
+  </div>
+
+  <div class="card shadow-sm border-0 bg-white">
+    <div class="card-body p-0">
+      <div class="table-responsive" *ngIf="itensFiltrados.length > 0; else semItens">
+        <table class="table table-hover align-middle mb-0">
+          <thead class="table-light">
+            <tr>
+              <th class="ps-4" style="width: 30%;">Produto</th>
+              <th style="width: 20%;">Categoria</th>
+              <th class="text-center" style="width: 20%;">Quantidade Atual</th>
+              <th class="text-center" style="width: 15%;">Mínimo Crítico</th>
+              <th class="text-center" style="width: 15%;">Status</th>
+              <th class="text-end pe-4" style="width: 15%;">Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let item of itensFiltrados">
+              <td class="ps-4 fw-bold text-dark">{{ item.nome }}</td>
+              
+              <td>
+                <span class="badge border text-dark bg-light d-inline-flex align-items-center gap-1">
+                  <span class="d-inline-block rounded-circle" 
+                        [style.background-color]="item.categoria?.corHex || '#secondary'" 
+                        style="width: 8px; height: 8px;"></span>
+                  {{ item.categoria?.nome || 'Não Categorizado' }}
+                </span>
+              </td>
+              
+              <td class="text-center">
+                <div class="d-flex align-items-center justify-content-center gap-2">
+                  <button class="btn btn-outline-secondary btn-xs py-0 px-2 fw-bold" 
+                          (click)="ajustarQtd(item, -1)" 
+                          [disabled]="item.quantidadeAtual <= 0">-</button>
+                  <span class="fw-bold mx-1 fs-5" [ngClass]="{'text-danger': isItemCritico(item)}">
+                    {{ item.quantidadeAtual | number:'1.0-2' }} <small class="text-muted font-monospace fs-6">{{ item.unidadeMedida }}</small>
+                  </span>
+                  <button class="btn btn-outline-secondary btn-xs py-0 px-2 fw-bold" 
+                          (click)="ajustarQtd(item, 1)">+</button>
+                </div>
+              </td>
+              
+              <td class="text-center text-muted fw-semibold">
+                {{ item.quantidadeMinima | number:'1.0-2' }} <small class="font-monospace">{{ item.unidadeMedida }}</small>
+              </td>
+              
+              <td class="text-center">
+                <span class="badge rounded-pill px-3 py-2" 
+                      [ngClass]="isItemCritico(item) ? 'bg-danger-subtle text-danger border border-danger-subtle' : 'bg-success-subtle text-success border border-success-subtle'">
+                  {{ isItemCritico(item) ? 'Faltando 🔴' : 'Abastecido 🟢' }}
+                </span>
+              </td>
+              
+              <td class="text-end pe-4">
+                <div class="d-flex justify-content-end gap-2">
+                  <button class="btn btn-sm btn-outline-secondary" (click)="editar(item)" title="Editar">
+                    <i class="bi bi-pencil"></i>
+                  </button>
+                  <button class="btn btn-sm btn-outline-danger" (click)="excluir(item.id, item.nome)" title="Excluir">
+                    <i class="bi bi-trash"></i>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <ng-template #semItens>
+        <div class="text-center p-5 text-muted">
+          <div class="fs-1 mb-2 text-secondary"><i class="bi bi-clipboard-x"></i></div>
+          <h5>Nenhum item encontrado</h5>
+          <p class="small mb-0">Experimente alterar os filtros ou cadastrar um novo produto para sua despensa.</p>
+        </div>
+      </ng-template>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="modalEstoque" tabindex="-1" aria-labelledby="modalEstoqueLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title" id="modalEstoqueLabel">
+          {{ formEstoque.get('id')?.value ? 'Editar Item da Despensa' : 'Adicionar Item à Despensa' }}
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      
+      <form [formGroup]="formEstoque" (ngSubmit)="salvarItem()">
+        <div class="modal-body">
+          
+          <div class="mb-3">
+            <label class="form-label fw-bold">Nome do Produto</label>
+            <input type="text" class="form-control" formControlName="nome" placeholder="Ex: Arroz Tipo 1, Sabão em Pó...">
+            <div *ngIf="formEstoque.get('nome')?.invalid && formEstoque.get('nome')?.touched" class="text-danger small mt-1">
+              O nome do produto é obrigatório (máx. 100 caracteres).
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label class="form-label fw-bold">Quantidade Atual</label>
+              <input type="number" step="0.01" class="form-control" formControlName="quantidadeAtual">
+              <div *ngIf="formEstoque.get('quantidadeAtual')?.invalid && formEstoque.get('quantidadeAtual')?.touched" class="text-danger small mt-1">
+                A quantidade atual não pode ser menor que zero.
+              </div>
+            </div>
+
+            <div class="col-md-6 mb-3">
+              <label class="form-label fw-bold">Avisar quando atingir (Mínimo)</label>
+              <input type="number" step="0.01" class="form-control" formControlName="quantidadeMinima">
+              <div *ngIf="formEstoque.get('quantidadeMinima')?.invalid && formEstoque.get('quantidadeMinima')?.touched" class="text-danger small mt-1">
+                O limite mínimo não pode ser menor que zero.
+              </div>
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="col-md-5 mb-3">
+              <label class="form-label fw-bold">Unidade</label>
+              <select class="form-select" formControlName="unidadeMedida">
+                <option value="un">Unidade (un)</option>
+                <option value="kg">Quilo (kg)</option>
+                <option value="lt">Litro (lt)</option>
+                <option value="pct">Pacote (pct)</option>
+                <option value="g">Gramas (g)</option>
+              </select>
+            </div>
+
+            <div class="col-md-7 mb-3">
+              <label class="form-label fw-bold">Categoria Vinculada</label>
+              <select class="form-select" formControlName="categoriaId">
+                <option value="" disabled selected>Selecione uma Categoria...</option>
+                <option *ngFor="let cat of categorias" [value]="cat.id">{{ cat.nome }}</option>
+              </select>
+              <div *ngIf="formEstoque.get('categoriaId')?.invalid && formEstoque.get('categoriaId')?.touched" class="text-danger small mt-1">
+                Vincular uma categoria é obrigatório para organizar seu BI.
+              </div>
+            </div>
+          </div>
+
+        </div>
+        
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary" [disabled]="formEstoque.invalid">
+            <i class="bi bi-save"></i> Salvar na Despensa
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

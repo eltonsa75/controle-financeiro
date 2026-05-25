@@ -1,5 +1,6 @@
-﻿using Microsoft.EntityFrameworkCore;
-using Financeiro.Api.Models;
+﻿using Financeiro.Api.Models;
+using FinanceiroApi.Models;
+using Microsoft.EntityFrameworkCore;
 
 namespace FinanceiroApi.Data
 {
@@ -10,6 +11,7 @@ namespace FinanceiroApi.Data
         public DbSet<Lancamento> Lancamentos { get; set; }
         public DbSet<Categoria> Categorias { get; set; }
         public DbSet<ItemLancamento> ItensLancamento { get; set; }
+        public DbSet<Estoque> Estoques { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

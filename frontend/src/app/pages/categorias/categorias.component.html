@@ -1,6 +1,24 @@
 <div class="container mt-4">
   <div class="d-flex justify-content-between align-items-center mb-4">
-    <h2 class="fw-bold">📊 Gestão de Categorias</h2>
+    <div class="d-flex align-items-center gap-3">
+      <h2 class="fw-bold mb-0">📊 Gestão de Categorias</h2>
+      
+      <div class="btn-group shadow-sm ms-2" role="group">
+        <button type="button" 
+                class="btn btn-sm" 
+                [ngClass]="visaoAtual === 'mensal' ? 'btn-primary' : 'btn-outline-primary'"
+                (click)="alterarVisao('mensal')">
+          Mensal
+        </button>
+        <button type="button" 
+                class="btn btn-sm" 
+                [ngClass]="visaoAtual === 'anual' ? 'btn-primary' : 'btn-outline-primary'"
+                (click)="alterarVisao('anual')">
+          Anual
+        </button>
+      </div>
+    </div>
+
     <button class="btn btn-primary shadow-sm" (click)="abrirModalNovaCategoria()">
       <i class="bi bi-plus-lg"></i> Nova Categoria
     </button>
@@ -16,7 +34,8 @@
           </div>
           
           <p class="text-muted small mb-1">
-            Gasto: {{ cat.gastoAtual | currency:'BRL' }} / Meta: {{ cat.metaMensal | currency:'BRL' }}
+            {{ visaoAtual === 'mensal' ? 'Gasto Mês' : 'Acumulado Ano' }}: {{ cat.gastoAtual | currency:'BRL' }} / 
+            {{ visaoAtual === 'mensal' ? 'Meta' : 'Teto Ano' }}: {{ cat.metaMensal | currency:'BRL' }}
           </p>
           
           <div class="progress mb-3" style="height: 10px;">
@@ -31,7 +50,7 @@
             <button class="btn btn-outline-secondary btn-sm" (click)="editar(cat)" title="Editar">
               <i class="bi bi-pencil"></i>
             </button>
-            <button class="btn btn-outline-danger btn-sm" (click)="excluir(cat.id)" title="Excluir">
+            <button class="btn btn-outline-danger btn-sm" (click)="excluir(cat.id, cat.nome)" title="Excluir">
               <i class="bi bi-trash"></i>
             </button>
           </div>
@@ -66,7 +85,7 @@
             <label class="form-label fw-bold">Meta de Gasto (R$)</label>
             <input type="number" class="form-control" formControlName="metaMensal">
             <div *ngIf="formCategoria.get('metaMensal')?.invalid && formCategoria.get('metaMensal')?.touched" class="text-danger small">
-              A meta deve ser maior que zero.
+              A meta não pode ser negativa.
             </div>
           </div>
 

@@ -5,6 +5,7 @@ import { DashboardComponent } from './pages/dashboard/dashboard.component';
 import { LancamentosComponent } from './pages/lancamentos/lancamentos.component';
 import { CategoriasComponent } from './pages/categorias/categorias.component';
 import { ComprasComponent } from './pages/compras/compras.component';
+import { EstoqueComponent } from './pages/estoque/estoque.component';
 
 export const routes: Routes = [
   // 1. Rota inicial e Login
@@ -19,6 +20,9 @@ export const routes: Routes = [
   { path: 'lista', component: ListaLancamentosComponent },
   { path: 'lancamentos', component: LancamentosComponent },
   { path: 'categorias', component: CategoriasComponent },
+  { path: 'estoque', component: EstoqueComponent }, 
+  
+  { path: '', redirectTo: '/categorias', pathMatch: 'full' }, // ou sua rota padrão
 
   // 4. Rota de fuga: se digitar algo errado, volta para o login (ou dashboard)
   { path: '**', redirectTo: '/login' }

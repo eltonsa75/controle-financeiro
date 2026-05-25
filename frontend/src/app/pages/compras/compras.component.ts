@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { FinanceiroService } from '../../services/financeiro.service';
-import { Lancamento } from '../../models/financeiro.model'; // Importe sua interface
+import { Lancamento } from '../../models/financeiro.model'; 
 import Swal from 'sweetalert2';
 
 interface ItemCompraLocal {
@@ -16,12 +16,12 @@ interface ItemCompraLocal {
   categoria: string;
 }
 
-// Atualizado para incluir a estrutura de data
+// Atualizado para começar com 0 para ativar o placeholder do HTML
 const ESTADO_INICIAL_RAPIDO = { 
   descricao: '', 
   valor: null as any, 
   tipo: 'Despesa', 
-  categoriaId: 3,
+  categoriaId: 0,
   dataEmissao: '' 
 };
 
@@ -42,8 +42,11 @@ export class ComprasComponent implements OnInit {
   saldoRestante: number = 0;
   porcentagemGasta: number = 0;
   descricaoCompra: string = '';
-  dataCompraPlanejada: string = ''; // Nova variável para o HTML
+  dataCompraPlanejada: string = ''; 
   tentouSalvar: boolean = false;
+
+  // 1. ADICIONADO: Propriedade para alimentar o combo-box do HTML
+  categorias: any[] = []; 
 
   novoLancamento = { ...ESTADO_INICIAL_RAPIDO };
 
@@ -64,6 +67,22 @@ export class ComprasComponent implements OnInit {
     this.novoLancamento.dataEmissao = hoje;
     this.dataCompraPlanejada = hoje;
     this.inicializarLinhas();
+    
+    // 2. ADICIONADO: Executa a carga das categorias ao abrir a tela
+    this.carregarCategorias();
+  }
+
+  carregarCategorias(): void {
+    // 🎯 Trocando o mock pela chamada real da API através do seu Service
+    this.financeiroService.listarCategorias().subscribe({
+      next: (dados) => {
+        this.categorias = dados; // Aqui chegam as categorias reais com os IDs certos do MySQL
+      },
+      error: (err) => {
+        console.error('Erro ao buscar categorias do banco:', err);
+        Swal.fire('Erro', 'Não foi possível carregar as categorias oficiais.', 'error');
+      }
+    });
   }
 
   salvarLancamentoManual(): void {
@@ -72,9 +91,14 @@ export class ComprasComponent implements OnInit {
       return;
     }
 
+    if (Number(this.novoLancamento.categoriaId) === 0) {
+      this.exibirErro('Por favor, selecione uma categoria para o lançamento.');
+      return;
+    }
+
     const valorAbsoluto = Math.abs(Number(this.novoLancamento.valor));
     
-    // Objeto ajustado com as novas propriedades obrigatórias
+    // 3. AJUSTADO: Agora 'categoriaId' pega dinamicamente o valor do select da tela
     const dadosParaEnviar: Lancamento = { 
       descricao: this.novoLancamento.descricao,
       valor: this.novoLancamento.tipo === 'Despesa' ? -valorAbsoluto : valorAbsoluto,
@@ -82,7 +106,7 @@ export class ComprasComponent implements OnInit {
       dataEmissao: new Date(this.novoLancamento.dataEmissao).toISOString(),
       dataImportacao: new Date().toISOString(),
       tipo: this.novoLancamento.tipo,
-      categoriaId: 3
+      categoriaId: Number(this.novoLancamento.categoriaId)
     };
 
     this.exibirLoading('Salvando lançamento...');
@@ -126,6 +150,10 @@ export class ComprasComponent implements OnInit {
     this.calcularComparativo();
   }
 
+  calcularTotalManual(valor: any): void {
+    // Método auxiliar caso necessário para formatações futuras
+  }
+
   calcularComparativo(): void {
     this.diferencaValor = this.total - this.compraAnterior.valor;
     this.statusComparativo = this.total === 0 ? 'Aguardando itens...' : 
@@ -133,39 +161,34 @@ export class ComprasComponent implements OnInit {
   }
 
   aoSelecionarArquivo(event: any) {
-  const ficheiro = event.target.files[0];
-  if (ficheiro) {
-    const formData = new FormData();
-    formData.append("pdf", ficheiro);
+    const ficheiro = event.target.files[0];
+    if (ficheiro) {
+      const formData = new FormData();
+      formData.append("pdf", ficheiro);
 
-    // Mostramos o loading porque o processamento de PDF + Salvamento pode levar 1 ou 2 segundos
-    this.exibirLoading('Lendo PDF e salvando lançamento...');
+      this.exibirLoading('Lendo PDF e salvando lançamento...');
 
-    this.financeiroService.uploadPdf(formData).subscribe({
-      next: (res: any) => {
-        // Fechamos o loading do Swal
-        Swal.close();
+      this.financeiroService.uploadPdf(formData).subscribe({
+        next: (res: any) => {
+          Swal.close();
 
-        // Feedback de sucesso para o usuário
-        Swal.fire({ 
-          icon: 'success', 
-          title: 'Importado com Sucesso!', 
-          text: 'A nota e os itens já foram registrados.',
-          timer: 2000, 
-          showConfirmButton: false 
-        });
+          Swal.fire({ 
+            icon: 'success', 
+            title: 'Importado com Sucesso!', 
+            text: 'A nota e os itens já foram registrados.',
+            timer: 2000, 
+            showConfirmButton: false 
+          });
 
-        // NAVEGAÇÃO DIRETA: Como o C# já salvou, não precisamos clicar em mais nada.
-        // Vamos para a tela de listagem para ver o resultado.
-        this.router.navigate(['/lista']);
-      },
-      error: (err) => {
-        console.error('Erro no upload/salvamento:', err);
-        Swal.fire('Erro na Importação', 'Não conseguimos processar ou salvar este PDF.', 'error');
-      }
-    });
+          this.router.navigate(['/lista']);
+        },
+        error: (err) => {
+          console.error('Erro no upload/salvamento:', err);
+          Swal.fire('Erro na Importação', 'Não conseguimos processar ou salvar este PDF.', 'error');
+        }
+      });
+    }
   }
-}
 
   salvarCompra(): void {
     this.tentouSalvar = true;
@@ -176,7 +199,6 @@ export class ComprasComponent implements OnInit {
 
     const itensValidos = this.itens.filter(i => i.descricao && i.descricao.trim() !== '');
     
-    // Objeto ajustado com as novas propriedades obrigatórias
     const lancamentoFinal: Lancamento = {
       descricao: this.descricaoCompra,
       valor: -Math.abs(this.total),
@@ -184,7 +206,7 @@ export class ComprasComponent implements OnInit {
       dataEmissao: new Date(this.dataCompraPlanejada).toISOString(),
       dataImportacao: new Date().toISOString(),
       tipo: 'Despesa',
-      categoriaId: 3, 
+      categoriaId: 1, // ID 1 fixo para "Mercado", pois este bloco é exclusivo para a lista de supermercado
       itens: itensValidos.map(item => ({
         descricao: item.descricao,
         preco: item.preco || 0,

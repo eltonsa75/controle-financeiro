@@ -47,6 +47,17 @@ export class FinanceiroService {
 
   constructor(private http: HttpClient) { }
 
+  listarCategorias(): Observable<any[]> {
+    const urlCategorias = this.apiUrl.replace('/Lancamentos', '/Categorias');
+    return this.http.get<any[]>(urlCategorias);
+  }
+
+  // 🎯 ADICIONE ESSE MÉTODO AQUI:
+  salvarCategoria(categoria: any): Observable<any> {
+    const urlCategorias = this.apiUrl.replace('/Lancamentos', '/Categorias');
+    return this.http.post<any>(urlCategorias, categoria);
+  }
+
   // --- MÉTODOS DE CONSULTA (BI) CORRIGIDOS ---
 
   // CORRIGIDO: Retorna o novo formato do gráfico de evolução
@@ -141,5 +152,17 @@ export class FinanceiroService {
 
   excluirLancamento(id: number): Observable<any> {
     return this.http.delete(`${this.apiUrl}/${id}`);
+  }
+
+  // 🎯 ADICIONE ESTES DOIS MÉTODOS NO SEU FINANCEIRO SERVICE:
+
+  atualizarCategoria(id: number, categoria: any): Observable<any> {
+    const urlCategorias = this.apiUrl.replace('/Lancamentos', '/Categorias');
+    return this.http.put<any>(`${urlCategorias}/${id}`, categoria);
+  }
+
+  excluirCategoria(id: number): Observable<any> {
+    const urlCategorias = this.apiUrl.replace('/Lancamentos', '/Categorias');
+    return this.http.delete<any>(`${urlCategorias}/${id}`);
   }
 }
