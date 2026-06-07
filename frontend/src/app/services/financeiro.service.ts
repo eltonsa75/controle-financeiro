@@ -38,6 +38,15 @@ export interface ResumoMensalResponse {
   saldoTotal: number;
 }
 
+// 🎯 INTERFACE DO BI ANUAL (Mapeada com o DTO do C#)
+export interface GastosAnuaisCategoria {
+  categoria: string;
+  valorGastoAno: number;
+  metaMensalBase: number;
+  metaAnualCalculada: number;
+  porcentagemAno: number;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -52,7 +61,6 @@ export class FinanceiroService {
     return this.http.get<any[]>(urlCategorias);
   }
 
-  // 🎯 ADICIONE ESSE MÉTODO AQUI:
   salvarCategoria(categoria: any): Observable<any> {
     const urlCategorias = this.apiUrl.replace('/Lancamentos', '/Categorias');
     return this.http.post<any>(urlCategorias, categoria);
@@ -60,7 +68,6 @@ export class FinanceiroService {
 
   // --- MÉTODOS DE CONSULTA (BI) CORRIGIDOS ---
 
-  // CORRIGIDO: Retorna o novo formato do gráfico de evolução
   getEvolucaoMensal(): Observable<EvolucaoMensalResponse> {
     return this.http.get<EvolucaoMensalResponse>(`${this.apiUrl}/evolucao-mensal`).pipe(
       catchError(err => {
@@ -70,7 +77,6 @@ export class FinanceiroService {
     );
   }
 
-  // CORRIGIDO: Retorna o resumo com saldo acumulado
   getResumoMensal(mes: number, ano: number): Observable<ResumoMensalResponse> {
     return this.http.get<ResumoMensalResponse>(`${this.apiUrl}/resumo-mensal?mes=${mes}&ano=${ano}`).pipe(
       catchError(err => {
@@ -80,7 +86,6 @@ export class FinanceiroService {
     );
   }
 
-  // CORRIGIDO: Retorna dashboard completo
   getDashboardCompleto(): Observable<any> {
     return this.http.get<any>(`${this.apiUrl}/dashboard-completo`).pipe(
       catchError(err => {
@@ -130,6 +135,16 @@ export class FinanceiroService {
     );
   }
 
+  // 🎯 NOVO MÉTODO: Consome os dados consolidados do Ano de 2026 com metas * 12
+  getGastosAnuaisPorCategoria(): Observable<GastosAnuaisCategoria[]> {
+    return this.http.get<GastosAnuaisCategoria[]>(`${this.apiUrl}/gastos-anuais`).pipe(
+      catchError(err => {
+        console.error('Erro ao carregar BI de metas anuais:', err);
+        return throwError(() => err);
+      })
+    );
+  }
+
   // --- MÉTODOS DE IMPORTAÇÃO E SALVAMENTO ---
 
   salvarLancamentoManual(dados: any): Observable<any> {
@@ -153,8 +168,6 @@ export class FinanceiroService {
   excluirLancamento(id: number): Observable<any> {
     return this.http.delete(`${this.apiUrl}/${id}`);
   }
-
-  // 🎯 ADICIONE ESTES DOIS MÉTODOS NO SEU FINANCEIRO SERVICE:
 
   atualizarCategoria(id: number, categoria: any): Observable<any> {
     const urlCategorias = this.apiUrl.replace('/Lancamentos', '/Categorias');

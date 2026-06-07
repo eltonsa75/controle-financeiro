@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { CategoriaService, CategoriaStatus } from '../../services/services/categoria.service';
 import Swal from 'sweetalert2'; // 🎯 Importação do SweetAlert2
+import { LancamentoService } from '../../services/lancamento.service';
 
 // Declaração global para o Bootstrap abrir/fechar modais via código
 declare var bootstrap: any;
@@ -22,35 +23,86 @@ export class CategoriasComponent implements OnInit {
   // 🎯 NOVO: Controle de estado da visão atual (Mensal vs Anual)
   visaoAtual: 'mensal' | 'anual' = 'mensal';
 
-  constructor(private fb: FormBuilder, private categoriaService: CategoriaService) {
-    this.formCategoria = this.fb.group({
-      id: [null],
-      nome: ['', Validators.required],
-      // Mínimo alterado para 0 para permitir categorias sem meta definida
-      metaMensal: [0, [Validators.required, Validators.min(0)]], 
-      corHex: ['#007bff'],
-      palavrasChave: ['']
-    });
-  }
+constructor(
+  private fb: FormBuilder, 
+  private categoriaService: CategoriaService,
+  private lancamentoService: LancamentoService // 🎯 INJETADO AQUI
+) {
+  this.formCategoria = this.fb.group({
+    id: [null],
+    nome: ['', Validators.required],
+    metaMensal: [0, [Validators.required, Validators.min(0)]], 
+    corHex: ['#007bff'],
+    palavrasChave: ['']
+  });
+}
 
   ngOnInit(): void {
     this.carregarCategorias();
   }
 
-  carregarCategorias(): void {
-    const data = new Date();
-    const mes = data.getMonth() + 1;
-    const ano = data.getFullYear();
+carregarCategorias(): void {
+  const data = new Date();
+  const mes = data.getMonth() + 1;
+  const ano = data.getFullYear();
 
-    // 🎯 AJUSTADO: Passando o parâmetro 'visaoAtual' para o service carregar mensal ou anual dinamicamente
-    this.categoriaService.listarComStatus(mes, ano, this.visaoAtual)
-      .subscribe({
-        next: (dados: CategoriaStatus[]) => {
-          this.categorias = dados;
+  // 1. Busca as categorias padrão mapeadas no banco do usuário
+  this.categoriaService.listarComStatus(mes, ano, this.visaoAtual).subscribe({
+    next: (dadosCategorias: CategoriaStatus[]) => {
+      
+      // 2. Busca os gastos reais calculados no Dapper (seja do mês ou do ano acumulado)
+      const requestGastos$ = this.visaoAtual === 'anual' 
+        ? this.lancamentoService.getGastosAnuaisPorCategoria()
+        : this.lancamentoService.getGastosCategoria();
+
+      requestGastos$.subscribe({
+        next: (gastosDapper: any[]) => {
+          
+          // 🎯 O PULO DO GATO PARA ESCONDER AS RECEITAS:
+          // Filtramos a lista vinda do banco ANTES de rodar o .map().
+          // Adicione aqui todos os nomes de categorias que você não quer que gerem cards na tela.
+          const categoriasDeReceita = ['salário', 'salario', 'renda extra', 'investimentos'];
+
+          this.categorias = dadosCategorias
+            .filter(cat => !categoriasDeReceita.includes(cat.nome.trim().toLowerCase())) // 🎯 Filtro Ativo!
+            .map(cat => {
+              const nomeCardLimpo = cat.nome ? cat.nome.trim().toLowerCase() : '';
+
+             const gastoReal = gastosDapper.find(g => {
+  // 🎯 Remove espaços, passa para minúsculas e remove todos os acentos para comparar com segurança
+  const nomeGastoLimpo = g.categoria ? g.categoria.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") : '';
+  const nomeCardLimpo = cat.nome ? cat.nome.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") : '';
+  
+  return nomeGastoLimpo === nomeCardLimpo || nomeGastoLimpo.includes(nomeCardLimpo) || nomeCardLimpo.includes(nomeGastoLimpo);
+});
+
+              // Se achou o gasto no Dapper, usa o valor. Caso contrário, joga zero.
+              const valorGasto = gastoReal ? Math.abs(gastoReal.valorGastoAno || gastoReal.valor || 0) : 0;
+
+              // REGLA DE BI DA OPÇÃO A: Se for visão anual, multiplica por 12
+              const metaCalculada = this.visaoAtual === 'anual' ? (cat.metaMensal * 12) : cat.metaMensal;
+
+              // Força o cálculo do percentual com base na meta correta do período
+              const percentualCalculated = (metaCalculada > 0) ? (valorGasto / metaCalculada) * 100 : 0;
+
+              return {
+                ...cat,
+                gastoAtual: valorGasto,
+                metaMensal: metaCalculada, 
+                percentual: percentualCalculated
+              };
+            });
+          
         },
-        error: (err) => console.error('Erro ao carregar categorias', err)
+        error: (err: any) => {
+          console.error('Erro ao buscar somatória do Dapper', err);
+          this.categorias = dadosCategorias; 
+        }
       });
-  }
+    },
+    error: (err: any) => console.error('Erro ao carregar categorias', err)
+  });
+}
 
   // 🎯 NOVO: Altera entre a visão Mensal/Anual e dispara uma nova requisição automática
   alterarVisao(novaVisao: 'mensal' | 'anual'): void {

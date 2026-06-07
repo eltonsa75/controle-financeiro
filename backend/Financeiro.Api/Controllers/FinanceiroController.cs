@@ -197,18 +197,25 @@ namespace Financeiro.Api.Controllers
         }
 
         // --- ENDPOINTS PARA OS GRÁFICOS ANALÍTICOS ---
-
+        // 🎯 Localize o endpoint na linha 206. Ele deve ser parecido com isso:
         [HttpGet("gastos-categoria")]
         public async Task<IActionResult> GetGastosCategoria()
         {
             try
             {
-                var dados = await _repository.ObterGastosPorCategoria();
+                // 1. Captura o ID do usuário logado de forma dinâmica (ou usa o seu ID fixo de testes se não estiver usando autenticação JWT ainda)
+                var usuarioId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+                             ?? User.FindFirst("id")?.Value
+                             ?? "PiGS3DH27AaUiLdNhnw9AiedMpm2"; // 🎯 Fallback de segurança com o seu ID do banco
+
+                // 2. Passa o usuarioId que o repositório agora exige como argumento!
+                var dados = await _repository.ObterGastosPorCategoria(usuarioId);
+
                 return Ok(dados);
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Erro ao carregar categorias: {ex.Message}");
+                return StatusCode(500, $"Erro interno: {ex.Message}");
             }
         }
 

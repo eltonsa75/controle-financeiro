@@ -30,6 +30,10 @@ export class EstoqueComponent implements OnInit {
   totalCriticos: number = 0;
   totalAbastecidos: number = 0;
 
+  // 🎯 VARIÁVEIS DE CONTROLE DA PAGINAÇÃO LOCAL (MÁXIMO 12 ITENS)
+  paginaAtual: number = 1;
+  itensPorPagina: number = 12;
+
   constructor(
     private fb: FormBuilder,
     private estoqueService: EstoqueService,
@@ -62,21 +66,20 @@ export class EstoqueComponent implements OnInit {
   }
 
   carregarCategorias(): void {
-    // Busca as categorias existentes para vincular ao produto (arroz -> mercado)
     this.categoriaService.listarTodas().subscribe({
       next: (dados) => this.categorias = dados,
       error: (err) => console.error('Erro ao buscar categorias:', err)
     });
   }
 
-  // 🎯 LÓGICA DE BI: Calcula os totais dos mini-cards dinamicamente
+  // Calcula os totais dos mini-cards dinamicamente
   calcularMétricas(): void {
     this.totalItens = this.itens.length;
     this.totalCriticos = this.itens.filter(i => i.quantidadeAtual <= i.quantidadeMinima).length;
     this.totalAbastecidos = this.itens.filter(i => i.quantidadeAtual > i.quantidadeMinima).length;
   }
 
-  // 🎯 FILTRAGEM MULTI-CAMADAS (Texto + Status do Card)
+  // FILTRAGEM MULTI-CAMADAS (Texto + Status do Card)
   aplicarFiltros(): void {
     this.itensFiltrados = this.itens.filter(item => {
       const bateTexto = item.nome.toLowerCase().includes(this.filtroTexto.toLowerCase());
@@ -94,21 +97,22 @@ export class EstoqueComponent implements OnInit {
 
   alterarFiltroStatus(status: 'todos' | 'critico' | 'abastecido'): void {
     this.filtroStatus = status;
+    this.paginaAtual = 1; // Reseta a página para evitar index fora do limite ao filtrar
     this.aplicarFiltros();
   }
 
   aoDigitarBusca(event: any): void {
     this.filtroTexto = event.target.value;
+    this.paginaAtual = 1; // Reseta a página ao digitar um termo de busca
     this.aplicarFiltros();
   }
 
-  // 🚀 AJUSTE RÁPIDO (+1 ou -1) direto na linha da tabela
+  // Ajuste rápido (+1 ou -1) na linha da tabela
   ajustarQtd(item: ItemEstoque, valor: number): void {
-    if (item.quantidadeAtual + valor < 0) return; // Impede estoque negativo no front
+    if (item.quantidadeAtual + valor < 0) return; 
 
     this.estoqueService.ajustarQuantidade(item.id, valor).subscribe({
       next: (itemAtualizado) => {
-        // Atualiza o item direto na lista da memória para performance instantânea
         const index = this.itens.findIndex(i => i.id === item.id);
         if (index !== -1) {
           this.itens[index].quantidadeAtual = itemAtualizado.quantidadeAtual;
@@ -180,6 +184,65 @@ export class EstoqueComponent implements OnInit {
         });
       }
     });
+  }
+
+  // ========== GETTERS DE FATIAMENTO DA PAGINAÇÃO LOCAL DO ESTOQUE ==========
+  get totalPaginas(): number {
+    if (!this.itensFiltrados || this.itensFiltrados.length === 0) return 1;
+    return Math.ceil(this.itensFiltrados.length / this.itensPorPagina);
+  }
+
+  get itensPaginados(): ItemEstoque[] {
+    if (!this.itensFiltrados || this.itensFiltrados.length === 0) return [];
+    const inicio = (this.paginaAtual - 1) * this.itensPorPagina;
+    const fim = inicio + this.itensPorPagina;
+    return this.itensFiltrados.slice(inicio, fim);
+  }
+
+  proximaPagina(): void {
+    if (this.paginaAtual < this.totalPaginas) this.paginaAtual++;
+  }
+
+  paginaAnterior(): void {
+    if (this.paginaAtual > 1) this.paginaAtual--;
+  }
+
+  // ========== 🎯 NOVO GERADOR DE NÚMEROS DA PAGINAÇÃO DINÂMICA SAAS ==========
+  get paginasVisiveis(): (number | string)[] {
+    const total = this.totalPaginas;
+    const atual = this.paginaAtual;
+    const paginas: (number | string)[] = [];
+
+    if (total <= 5) {
+      for (let i = 1; i <= total; i++) paginas.push(i);
+    } else {
+      paginas.push(1);
+
+      if (atual > 3) {
+        paginas.push('...');
+      }
+
+      const inicio = Math.max(2, atual - 1);
+      const fim = Math.min(total - 1, atual + 1);
+
+      for (let i = inicio; i <= fim; i++) {
+        if (!paginas.includes(i)) paginas.push(i);
+      }
+
+      if (atual < total - 2) {
+        paginas.push('...');
+      }
+
+      if (!paginas.includes(total)) paginas.push(total);
+    }
+
+    return paginas;
+  }
+
+  irParaPagina(pagina: number | string): void {
+    if (typeof pagina === 'number') {
+      this.paginaAtual = pagina;
+    }
   }
 
   // --- MÉTODOS VISUAIS AUXILIARES ---

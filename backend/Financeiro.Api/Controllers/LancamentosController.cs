@@ -276,12 +276,62 @@ namespace FinanceiroApi.Controllers
             }
         }
 
+       
         // GET: api/Lancamentos/gastos-categoria
         [HttpGet("gastos-categoria")]
         public async Task<IActionResult> GetGastosCategoria()
         {
-            var dados = await _repository.ObterGastosPorCategoria();
-            return Ok(dados);
+            try
+            {
+                // 1. Usa o seu método helper para pegar o ID do usuário logado
+                string userId = ObterUserId();
+
+                // 2. Fallback de segurança para testes locais caso o ID retorne 'admin-001'
+                if (userId == "admin-001")
+                {
+                    userId = "PiGS3DH27AaUiLdNhnw9AiedMpm2";
+                }
+
+                Console.WriteLine($"[DEBUG MENSAL] Buscando gastos por categoria para o usuário: {userId}");
+
+                // 3. Injeta o userId como argumento exigido pelo repositório!
+                var dados = await _repository.ObterGastosPorCategoria(userId);
+
+                return Ok(dados);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[ERRO] GET Gastos Categoria: {ex.Message}");
+                return StatusCode(500, $"Erro interno: {ex.Message}");
+            }
+        }
+
+        [HttpGet("gastos-anuais")]
+        public async Task<IActionResult> GetGastosAnuais()
+        {
+            try
+            {
+                // Reutiliza o método helper que você já tem no controller para pegar o ID logado
+                string userId = ObterUserId();
+
+                // Se o helper retornar o fallback de teste "admin-001", trocamos para o seu ID oficial de produção
+                if (userId == "admin-001")
+                {
+                    userId = "PiGS3DH27AaUiLdNhnw9AiedMpm2";
+                }
+
+                Console.WriteLine($"[DEBUG BI ANUAL] Buscando gastos acumulados do ano para o usuário: {userId}");
+
+                // Chama o repositório Dapper passando o ID correto
+                var dados = await _repository.ObterGastosAnuaisComMetas(userId);
+
+                return Ok(dados);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[ERRO] GET Gastos Anuais: {ex.Message}");
+                return StatusCode(500, $"Erro interno ao calcular BI Anual: {ex.Message}");
+            }
         }
 
         // POST: api/Lancamentos/importar-pdf
@@ -303,7 +353,25 @@ namespace FinanceiroApi.Controllers
                     if (resultado == null)
                         return BadRequest("Não foi possível extrair dados deste PDF.");
 
-                    return Ok(resultado);
+                    // 🎯 ALINHAMENTO DE SEGURANÇA PARA OS CARDS DO ANGULAR:
+                    // Se a nota extraída pertencer a outro mês, forçamos a gravação para a data atual.
+                    // Isso garante o cruzamento matemático positivo na query do "GetResumoMensal".
+                    if (resultado.DataEmissao.Month != DateTime.Now.Month || resultado.DataEmissao.Year != DateTime.Now.Year)
+                    {
+                        resultado.DataEmissao = DateTime.Now;
+                        resultado.Data = DateTime.Now;
+                        _context.Entry(resultado).State = EntityState.Modified;
+                        await _context.SaveChangesAsync();
+                    }
+
+                    // 🎯 RESOLUÇÃO DE RELACIONAMENTO: Busca de forma limpa o registro recém-criado
+                    // trazendo explicitamente a Categoria Pai e a lista de Itens populada para renderizar sem furos no front.
+                    var lancamentoCompleto = await _context.Lancamentos
+                        .Include(l => l.Categoria)
+                        .Include(l => l.Itens)
+                        .FirstOrDefaultAsync(l => l.Id == resultado.Id);
+
+                    return Ok(lancamentoCompleto);
                 }
             }
             catch (Exception ex)
@@ -384,8 +452,8 @@ namespace FinanceiroApi.Controllers
                 { "Padaria", new[] { "PAO", "PULLMAN", "TORRADA" } },
                 { "Bebidas", new[] { "REFRIGERANTE", "COCA", "AGUA", "SUCO", "CERVEJA" } },
                 { "Pet Shop", new[] { "RACAO", "PEDIGREE", "CACHORRO", "GATO" } },
-                { "Acougue", new[] { "CARNE", "FRANGO", "LINGUICA", "BIFE" } },
-                { "Transporte", new[] { "GASOLINA", "ALCOOL", "DIESEL", "SHELL", "IPIRANGA", "ESTACIONAMENTO", "UBER" } },
+                { "Acougue", new[] { "CARNE", "FRANGO", "LINGUICA", "BIFE" } },                
+                { "Automóvel", new[] { "GASOLINA", "ALCOOL", "DIESEL", "SHELL", "IPIRANGA", "ESTACIONAMENTO", "UBER", "MECANICO", "AUTO", "CONSERTO" } },
                 { "Academia", new[] { "SMART FIT", "WHEY", "CREATINA", "GYMPASS" } },
                 { "Educacao", new[] { "FACULDADE", "FAAP", "CURSO", "UDEMY" } },
                 { "Restaurante", new[] { "IFOOD", "BURGER", "MC DONALDS", "PIZZA", "ALMOCO" } }

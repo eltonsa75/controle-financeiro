@@ -1,11 +1,10 @@
 ﻿using Financeiro.Api.Models;
 using FinanceiroApi.Data;
 using FinanceiroApi.Models;
-using HtmlAgilityPack;
 using Microsoft.EntityFrameworkCore;
 using System.Globalization;
+using System.Net.Http.Json;
 using System.Text.RegularExpressions;
-using UglyToad.PdfPig;
 
 namespace FinanceiroApi.Services
 {
@@ -19,139 +18,271 @@ namespace FinanceiroApi.Services
             _context = context;
         }
 
-        // ==================== MÉTODOS PÚBLICOS ====================
+        // DTOs locais estruturados para mapear o retorno JSON do Python
+        public class PythonItemDto
+        {
+            public string Descricao { get; set; }
+            public double Quantidade { get; set; }
+            public decimal Preco { get; set; }
+            public string Categoria { get; set; } // Recebe o retorno estruturado do motor Python
+        }
+
+        public class PythonRespostaDto { public string Estabelecimento { get; set; } public string TextoBruto { get; set; } public List<PythonItemDto> Itens { get; set; } }
+
+        // ==================== MÉTODO PRINCIPAL ====================
 
         public async Task<Lancamento> ProcessarPdfNota(Stream arquivoStream, string userId)
         {
+            Console.WriteLine("\n==== [.NET] INTEGRANDO COM MICROSERVIÇO PYTHON ====");
             var lancamento = CriarLancamentoBase(userId);
+            string textoBrutoDoPdf = "";
+            PythonRespostaDto dadosMapeados = null;
 
-            using (var pdf = PdfDocument.Open(arquivoStream))
+            // 1. Envia o arquivo Stream recebido do Angular diretamente para o Python
+            using (var client = new HttpClient())
+            using (var content = new MultipartFormDataContent())
             {
-                var paginas = pdf.GetPages();
+                arquivoStream.Position = 0; // Reseta o ponteiro do arquivo
+                var streamContent = new StreamContent(arquivoStream);
+                content.Add(streamContent, "file", "nota_upload.pdf");
 
-                // ========== Juntar páginas com separador ==========
-                var textosPaginas = new List<string>();
-                int pageCount = 0;
-                foreach (var page in paginas)
+                try
                 {
-                    string textoPagina = page.Text;
-                    textosPaginas.Add(textoPagina);
-                    pageCount++;
-                    Console.WriteLine($"[PDF] Página {pageCount}: {textoPagina.Length} caracteres");
-                }
+                    // Faz a chamada HTTP POST para a API Python FastAPI
+                    var respostaPython = await client.PostAsync("http://localhost:8000/extrair-nota", content);
 
-                // Junta com espaço para não concatenar palavras
-                string textoBruto = string.Join(" ", textosPaginas);
-                // ============================================
-
-                // ========== EXTRAIR DATA DO PDF ==========
-                ExtrairDataDoPdf(textoBruto, lancamento);
-                // ============================================
-
-                // Limpa o texto
-                string textoLimpo = Regex.Replace(textoBruto, @"\s+", " ");
-
-                // Processa estabelecimento (empresa + endereço)
-                ProcessarEstabelecimentoPdf(textoBruto, lancamento);
-
-                // Processa itens
-                lancamento.Itens = ProcessarItensDoPdf(textoLimpo, lancamento.Descricao);
-
-                // ========== CLASSIFICAÇÃO AUTOMÁTICA DOS PRODUTOS ==========
-                foreach (var item in lancamento.Itens)
-                {
-                    item.Categoria = ClassificarAutomaticamente(item.Descricao);
-                    Console.WriteLine($"[CLASSIFICAÇÃO] Produto: {item.Descricao} -> Categoria: {item.Categoria}");
-                }
-
-                // ========== 🎯 NOVA CLASSIFICAÇÃO DA NOTA MULTI-CAMADAS ==========
-
-                // 1. Busca todas as categorias reais do usuário logado direto no MySQL
-                var categoriasDoUsuario = await _context.Categorias
-                    .Where(c => c.UsuarioId == userId)
-                    .ToListAsync();
-
-                string textoParaMapear = (lancamento.Descricao + " " + textoLimpo).ToLower();
-                Categoria categoriaFinal = null;
-
-                // ESTRATÉGIA A: Busca por Palavras-Chave configuradas na tabela do Banco (Mais inteligente para o BI)
-                foreach (var cat in categoriasDoUsuario)
-                {
-                    if (!string.IsNullOrEmpty(cat.PalavrasChave))
+                    if (!respostaPython.IsSuccessStatusCode)
                     {
-                        var palavras = cat.PalavrasChave.Split(',', StringSplitOptions.RemoveEmptyEntries);
-                        if (palavras.Any(p => textoParaMapear.Contains(p.Trim().ToLower())))
+                        throw new Exception($"O microsserviço Python retornou erro: {respostaPython.StatusCode}");
+                    }
+
+                    // Lê o JSON estruturado que o Python gerou usando o 'pdfplumber' e a categorização local
+                    dadosMapeados = await respostaPython.Content.ReadFromJsonAsync<PythonRespostaDto>();
+
+                    if (dadosMapeados != null)
+                    {
+                        lancamento.Descricao = dadosMapeados.Estabelecimento;
+                        textoBrutoDoPdf = dadosMapeados.TextoBruto;
+
+                        // Alimenta a entidade de lançamento do C# com os itens já limpos pelo Python
+                        lancamento.Itens = dadosMapeados.Itens.Select(i => new ItemLancamento
                         {
-                            categoriaFinal = cat;
-                            break; // Achou o match perfeito pelo banco, interrompe o laço
+                            Descricao = i.Descricao,
+                            Quantidade = i.Quantidade,
+                            Preco = i.Preco,
+                            Comprado = true
+                        }).ToList();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[.NET ERRO CRÍTICO] Falha ao comunicar com o Python: {ex.Message}");
+                    lancamento.Descricao = "ERRO INTERNO NO MOTOR PYTHON";
+                }
+            }
+
+            // 2. Extrai os metadados usando o texto bruto unificado retornado do Python
+            ExtrairDataDoPdf(textoBrutoDoPdf, lancamento);
+
+            // 3. Busca categorias do banco para cruzamento inteligente por palavras-chave
+            var categoriasDoUsuario = await _context.Categorias.Where(c => c.UsuarioId == userId).ToListAsync();
+            lancamento.CategoriaId = DeterminarCategoriaInteligente(lancamento, categoriasDoUsuario, textoBrutoDoPdf);
+
+            // 4. Vincula as subcategorias em cada item baseando-se no mapeamento do Python
+            foreach (var item in lancamento.Itens)
+            {
+                // Puxa do retorno do Python o item correspondente para extrair a categoria definida
+                var categoriaVindaDoPython = dadosMapeados?.Itens?.FirstOrDefault(i => i.Descricao == item.Descricao)?.Categoria;
+
+                // 🎯 ATRIBUIÇÃO DIRETA NA STRING: Se o Python categorizou com sucesso, salvamos no campo. 
+                // Se veio "Outros" ou vazio, roda o método estático local como segurança.
+                item.Categoria = !string.IsNullOrEmpty(categoriaVindaDoPython) && categoriaVindaDoPython != "Outros"
+                    ? categoriaVindaDoPython
+                    : ClassificarAutomaticamente(item.Descricao);
+            }
+
+            lancamento.Tipo = "despesa";
+
+            decimal somaItens = lancamento.Itens.Any()
+                ? lancamento.Itens.Sum(it => (decimal)it.Quantidade * it.Preco)
+                : 0;
+
+            decimal valorPago = ExtrairValorPago(textoBrutoDoPdf, somaItens);
+
+            lancamento.Valor = -Math.Abs(valorPago > 0 ? valorPago : somaItens);
+            lancamento.DataImportacao = DateTime.Now;
+
+            Console.WriteLine($"[.NET LOG] Total de Itens: {lancamento.Itens.Count} | Valor Calculado: R$ {Math.Abs(lancamento.Valor):F2}");
+
+            // 5. Salva os registros de forma rígida no MySQL
+            _context.Lancamentos.Add(lancamento);
+            await _context.SaveChangesAsync();
+
+            // 🎯 FORÇA CARREGAMENTO EM MEMÓRIA: Garante que os objetos internos fiquem totalmente sincronizados antes de voltar para o front
+            await _context.Entry(lancamento).Reference(l => l.Categoria).LoadAsync();
+            await _context.Entry(lancamento).Collection(l => l.Itens).LoadAsync();
+
+            // 6. Alimenta de forma incremental as tabelas do Inventário (Estoque) utilizando as novas categorias
+            await AtualizarEstoquePorNota(lancamento, userId, categoriasDoUsuario);
+
+            Console.WriteLine("==== [.NET] FLUXO DE COMPILAÇÃO E SALVAMENTO CONCLUÍDO ====\n");
+            return lancamento;
+        }
+
+        // ==================== INTELIGENCIAS E MÉTODOS AUXILIARES C# ====================
+
+        private int DeterminarCategoriaInteligente(Lancamento lancamento, List<Categoria> categorias, string textoBruto)
+        {
+           
+            string textoParaMapear = (lancamento.Descricao + " " + textoBruto).ToLower();
+
+            foreach (var cat in categorias)
+            {
+                if (!string.IsNullOrEmpty(cat.PalavrasChave))
+                {
+                    var palavras = cat.PalavrasChave.Split(',', StringSplitOptions.RemoveEmptyEntries);
+                    foreach (var p in palavras)
+                    {
+                        string palavraChaveLimpa = p.Trim().ToLower();
+                        if (!string.IsNullOrEmpty(palavraChaveLimpa) && textoParaMapear.Contains(palavraChaveLimpa))
+                        {
+                            return cat.Id; 
                         }
                     }
                 }
+            }
 
-                // ESTRATÉGIA B (Fallback): Se não achou palavra-chave, faz o de-para dos itens internos do código
-                if (categoriaFinal == null)
+           
+            string categoriaNotaSub = ClassificarNotaPorItens(lancamento.Itens.ToList());
+
+            string nomeAlvo = categoriaNotaSub.ToLower().Trim() switch
+            {
+                "mercearia" => "mercearia",
+                "laticínios e frios" or "laticinios e frios" => "laticínios e frios",
+                "snacks e doces" => "snacks e doces",
+                "padaria" => "padaria",
+                "acougue" or "açougue" => "açougue",
+                "bebidas" => "bebidas",
+                "limpeza" => "limpeza",
+                "higiene e saúde" or "higiene e saude" or "higiene" => "higiene",
+                "farmácia" or "farmacia" => "farmácia",
+                "hortifruti" => "hortifruti",
+                "pet shop" or "petshop" => "pet shop",
+                "automóvel" or "automovel" => "automóvel",
+                "estacionamento" => "estacionamento",
+                "suplementos" => "suplementos",
+                "lazer" => "lazer",
+                "educação" or "educacao" => "educação",
+                "roupas" => "roupas",
+                _ => "geral"
+            };
+
+            // Busca no banco a categoria que bate com o nomeAlvo do switch
+            var categoriaFinal = categorias.FirstOrDefault(c =>
+                c.Nome.ToLower().Trim() == nomeAlvo);
+
+            if (categoriaFinal != null && categoriaFinal.Id != 1) return categoriaFinal.Id;
+
+            // Fallback de segurança: joga para Mercearia ou Geral
+            var fallbackDespesa = categorias.FirstOrDefault(c => c.Nome.Contains("Mercearia") || c.Nome.Contains("Geral"))
+                                  ?? categorias.FirstOrDefault(c => c.Id != 1);
+
+            return fallbackDespesa?.Id ?? 2;
+        }
+
+        private string ClassificarAutomaticamente(string nomeProduto)
+        {
+            if (string.IsNullOrEmpty(nomeProduto)) return "Outros";
+            string nome = nomeProduto.ToUpper();
+
+            var mapeamento = new Dictionary<string, string[]>
+            {
+                { "Laticínios e Frios", new[] { "LEITE", "LEITE L.VIDA", "NINHO", "MUSSARELA", "QUEIJO", "DANONE", "IOG", "IOGURTE", "RICOTA", "APRESUNTADO", "AURORA", "BATAV", "FERM", "ELEGE" } },
+                { "Mercearia", new[] { "FEIJAO", "FEIJÃO", "ARROZ", "ARROZ TIO JOAO", "TIO JOAO", "MAC.D.BENTA", "D.BENTA", "OLEO", "ÓLEO", "SOYA", "AZEITE", "ANDOR", "ACUCAR", "CAFE", "3COR", "CORACOES", "CAPS", "MAC.", "ATUM", "MOLHO", "EKMA", "KISABOR", "SAC ASSA", "SACO", "MAND", "RAV", "MEZZ", "QJOS", "MIX SA", "GRANO", "KICALDO", "CAMIL" } },
+                { "Limpeza", new[] { "OMO", "VANISH", "LIMP.PERFUMADO", "DETERG", "AMAC ROUPA AMACITEL", "AMACITEL", "DESINF.SANOL", "SANOL", "SAC INST.BIO", "60X70", "INST.BIO", "ESPONJA", "SCOTCH", "BRITE", "PAPEL", "TOALHA", "BULNEZ", "GLADE", "DESODORIZADOR" } },
                 {
-                    var listaItens = lancamento.Itens.ToList();
-                    string categoriaNotaSub = ClassificarNotaPorItens(listaItens); // Ex: "Mercearia", "Limpeza"
+    "Higiene e Saúde", new[] {
+        "SAB.", "DOVE", "REXONA", "DESOD.", "COLGATE", "CREME DENT", "SHAMP",
+        "KARITE", "AERO", "BWELL", "MAG", "500MG", "CR.D.", "REMEDIO", "REMEDIOS",
+        "REM.", "MEDICAMENTO", "COMPRIMIDO", "COMP.", "DIPIRONA", "DORFLEX", "FARMACIA"
+    }
+},
+                { "Hortifruti", new[] { "BATATA", "ALHO", "PEPINO", "ABOBORA", "CEBOLA", "TOMATE", "BANANA", "MACA" } },
+                { "Snacks e Doces", new[] { "BISCOITO", "CLUB SOCIAL", "BOMBOM", "LACTA", "SALG.", "ELMA", "AMEND", "DOCE", "CRACKER", "RANCHEIRO" } },
+                { "Padaria", new[] { "PAO", "PÃO", "PULLMAN", "BISNAGUITO", "KIM", "PAO FORMA KIM", "PAO QJO MASSA", "TORRADA", "MASSA" } },
+                { "Bebidas", new[] { "REF.", "SPRITE", "COCO", "AGUA COCO PURO COCO", "PURO COCO", "AGUA", "A M.CRYSTAL", "CRYSTAL", "SUCO" } },
+                { "Pet Shop", new[] { "RACAO", "RACÃO", "RAÇÃO PEDIGREE", "PEDIGREE", "DOG", "CAT" } },
+                { "Acougue", new[] { "CARNE", "FRANGO", "LINGUICA", "BIFE", "PERD.", "PERDIGAO" } }
+            };
 
-                    // Traduz os subgrupos internos para os nomes reais de categoria que você usa no banco
-                    string nomeAlvo = categoriaNotaSub switch
-                    {
-                        "Mercearia" or "Laticínios e Frios" or "Hortifruti" or "Snacks e Doces" or "Padaria" or "Acougue" => "Mercado",
-                        "Limpeza" or "Higiene e Saúde" => "Saude",
-                        "Educacao" => "Educação",
-                        _ => "Geral"
-                    };
+            foreach (var categoria in mapeamento)
+            {
+                if (categoria.Value.Any(keyword => nome.Contains(keyword))) return categoria.Key;
+            }
+            return "Outros";
+        }
 
-                    // Busca uma categoria no banco que contenha o nome alvo
-                    categoriaFinal = categoriasDoUsuario.FirstOrDefault(c =>
-                        c.Nome.ToLower().Contains(nomeAlvo.ToLower()) ||
-                        nomeAlvo.ToLower().Contains(c.Nome.ToLower()));
-                }
+        private string ClassificarNotaPorItens(List<ItemLancamento> itens)
+        {
+            if (itens == null || !itens.Any()) return "Outros";
+            return itens.GroupBy(i => i.Categoria).OrderByDescending(g => g.Count()).First().Key;
+        }
 
-                // 2. Aplica o ID da categoria encontrada ou usa um Fallback seguro de despesa (evitando o ID 1 de Receitas)
-                if (categoriaFinal != null)
+        private async Task AtualizarEstoquePorNota(Lancamento lancamento, string userId, List<Categoria> categoriasDoUsuario)
+        {
+            if (lancamento.Itens == null || !lancamento.Itens.Any()) return;
+
+            var estoqueUsuario = await _context.Estoques.Where(e => e.UsuarioId == userId).ToListAsync();
+
+            foreach (var itemNota in lancamento.Itens)
+            {
+                string descricaoNotaUpper = itemNota.Descricao.ToUpper();
+                var itemEstoque = estoqueUsuario.FirstOrDefault(e => descricaoNotaUpper.Contains(e.Nome.ToUpper()) || e.Nome.ToUpper().Contains(descricaoNotaUpper));
+
+                if (itemEstoque != null)
                 {
-                    lancamento.CategoriaId = categoriaFinal.Id;
-                    Console.WriteLine($"[CLASSIFICAÇÃO NOTA] Categoria Definida dinamicamente: {categoriaFinal.Nome} (ID: {categoriaFinal.Id})");
+                    itemEstoque.QuantidadeAtual += (decimal)itemNota.Quantidade;
                 }
                 else
                 {
-                    // Tenta achar uma de despesas gerais, se não houver, evita o ID 1 se ele for Receita
-                    var fallbackDespesa = categoriasDoUsuario.FirstOrDefault(c => c.Nome.Contains("Geral") || c.Nome.Contains("Outros"))
-                                          ?? categoriasDoUsuario.FirstOrDefault(c => c.Id != 1);
+                    string categoriaTexto = itemNota.Categoria;
+                    string nomeAlvo = categoriaTexto switch
+                    {
+                        "Mercearia" or "Laticínios e Frios" or "Snacks e Doces" or "Padaria" => "Mercado",
+                        "Limpeza" => "Limpeza",
+                        "Higiene e Saúde" => "Higiene",
+                        "Hortifruti" => "Hortifruti",
+                        "Acougue" => "Açougue",
+                        _ => "Geral"
+                    };
 
-                    lancamento.CategoriaId = fallbackDespesa?.Id ?? 1;
-                    Console.WriteLine($"[CLASSIFICAÇÃO NOTA] Categoria não identificada. Usando Fallback ID: {lancamento.CategoriaId}");
+                    var catCorrespondente = categoriasDoUsuario.FirstOrDefault(c => c.Nome.ToLower().Contains(nomeAlvo.ToLower()) || nomeAlvo.ToLower().Contains(c.Nome.ToLower()));
+                    int categoriaIdItem = catCorrespondente?.Id ?? lancamento.CategoriaId;
+
+                    var novoItemDespensa = new Estoque
+                    {
+                        Nome = CapitalizarTexto(itemNota.Descricao),
+                        QuantidadeAtual = (decimal)itemNota.Quantidade,
+                        QuantidadeMinima = 1.00m,
+                        UnidadeMedida = "un",
+                        CategoriaId = categoriaIdItem,
+                        UsuarioId = userId
+                    };
+
+                    _context.Estoques.Add(novoItemDespensa);
+                    estoqueUsuario.Add(novoItemDespensa);
                 }
-
-                // 🎯 CORREÇÃO CRÍTICA: Mantém o Tipo estritamente como "despesa" para não corromper os gráficos do BI
-                lancamento.Tipo = "despesa";
-
-                // Calcula soma dos itens
-                decimal somaItens = lancamento.Itens.Any()
-                    ? lancamento.Itens.Sum(it => (decimal)it.Quantidade * it.Preco)
-                    : 0;
-
-                // Extrai valor pago - busca em TODO o texto
-                decimal valorPago = ExtrairValorPago(textoBruto, somaItens);
-
-                // Define o valor final do lançamento (forçando negativo por ser despesa)
-                lancamento.Valor = -Math.Abs(valorPago > 0 ? valorPago : somaItens);
-                lancamento.DataImportacao = DateTime.Now;
-
-                Console.WriteLine($"[FINAL] Data Emissão: {lancamento.DataEmissao:dd/MM/yyyy}");
-                Console.WriteLine($"[FINAL] Descricao: {lancamento.Descricao}");
-                Console.WriteLine($"[FINAL] Categoria Nota: {(categoriaFinal?.Nome ?? "Padrão")}");
-                Console.WriteLine($"[FINAL] Soma Itens: {somaItens:C} | Valor Pago: {lancamento.Valor:C} | Itens: {lancamento.Itens.Count}");
             }
-
-            // ========== ADICIONAR AO BANCO E RETORNAR ==========
-            _context.Lancamentos.Add(lancamento);
             await _context.SaveChangesAsync();
-            await _context.Entry(lancamento).Reference(l => l.Categoria).LoadAsync();
+        }
 
-            return lancamento;
+        private string CapitalizarTexto(string texto)
+        {
+            if (string.IsNullOrWhiteSpace(texto)) return string.Empty;
+            texto = texto.Trim().ToLower();
+            if (texto.Length > 80) texto = texto.Substring(0, 80);
+            if (texto.Length == 1) return texto.ToUpper();
+            return char.ToUpper(texto[0]) + texto.Substring(1);
         }
 
         private void ExtrairDataDoPdf(string textoBruto, Lancamento lancamento)
@@ -159,330 +290,30 @@ namespace FinanceiroApi.Services
             DateTime dataEmissao = DateTime.Now;
             bool dataEncontrada = false;
 
-            // PRIORIDADE 1: Buscar "Emissão: 28/02/2026"
             var matchEmissao = Regex.Match(textoBruto, @"Emissão:\s*(\d{2}/\d{2}/\d{4})", RegexOptions.IgnoreCase);
-            if (matchEmissao.Success)
-            {
-                if (DateTime.TryParseExact(matchEmissao.Groups[1].Value, "dd/MM/yyyy", _culturaBr, DateTimeStyles.None, out dataEmissao))
-                {
-                    dataEncontrada = true;
-                    Console.WriteLine($"[DATA] Encontrada via 'Emissão': {dataEmissao:dd/MM/yyyy}");
-                }
-            }
+            if (matchEmissao.Success && DateTime.TryParseExact(matchEmissao.Groups[1].Value, "dd/MM/yyyy", _culturaBr, DateTimeStyles.None, out dataEmissao))
+                dataEncontrada = true;
 
-            // PRIORIDADE 2: Buscar data no padrão "29/04/2026, 22:55"
             if (!dataEncontrada)
             {
                 var matchDataCompra = Regex.Match(textoBruto, @"(\d{2}/\d{2}/\d{4}),\s*\d{2}:\d{2}", RegexOptions.IgnoreCase);
-                if (matchDataCompra.Success)
-                {
-                    if (DateTime.TryParseExact(matchDataCompra.Groups[1].Value, "dd/MM/yyyy", _culturaBr, DateTimeStyles.None, out dataEmissao))
-                    {
-                        dataEncontrada = true;
-                        Console.WriteLine($"[DATA] Encontrada via data da compra: {dataEmissao:dd/MM/yyyy}");
-                    }
-                }
+                if (matchDataCompra.Success && DateTime.TryParseExact(matchDataCompra.Groups[1].Value, "dd/MM/yyyy", _culturaBr, DateTimeStyles.None, out dataEmissao))
+                    dataEncontrada = true;
             }
 
-            // PRIORIDADE 3: Buscar "Data/Hora: 29/04/2026"
-            if (!dataEncontrada)
-            {
-                var matchDataHora = Regex.Match(textoBruto, @"Data/Hora:\s*(\d{2}/\d{2}/\d{4})", RegexOptions.IgnoreCase);
-                if (matchDataHora.Success)
-                {
-                    if (DateTime.TryParseExact(matchDataHora.Groups[1].Value, "dd/MM/yyyy", _culturaBr, DateTimeStyles.None, out dataEmissao))
-                    {
-                        if (dataEmissao < DateTime.Now.AddDays(-1))
-                        {
-                            dataEncontrada = true;
-                            Console.WriteLine($"[DATA] Encontrada via 'Data/Hora': {dataEmissao:dd/MM/yyyy}");
-                        }
-                    }
-                }
-            }
-
-            // PRIORIDADE 4: Buscar qualquer data
-            if (!dataEncontrada)
-            {
-                var matchesData = Regex.Matches(textoBruto, @"\b(\d{2}/\d{2}/\d{4})\b");
-                foreach (Match match in matchesData)
-                {
-                    if (DateTime.TryParseExact(match.Groups[1].Value, "dd/MM/yyyy", _culturaBr, DateTimeStyles.None, out dataEmissao))
-                    {
-                        if (dataEmissao < DateTime.Now && dataEmissao > new DateTime(2024, 1, 1))
-                        {
-                            dataEncontrada = true;
-                            Console.WriteLine($"[DATA] Encontrada via data genérica: {dataEmissao:dd/MM/yyyy}");
-                            break;
-                        }
-                    }
-                }
-            }
-
-            if (dataEncontrada)
-            {
-                lancamento.DataEmissao = dataEmissao;
-                lancamento.Data = dataEmissao;
-                Console.WriteLine($"[DATA] Data da nota definida: {lancamento.DataEmissao:dd/MM/yyyy}");
-            }
-            else
-            {
-                Console.WriteLine($"[DATA] Nenhuma data válida encontrada, usando data atual: {DateTime.Now:dd/MM/yyyy}");
-            }
+            lancamento.DataEmissao = dataEncontrada ? dataEmissao : DateTime.Now;
+            lancamento.Data = lancamento.DataEmissao;
         }
 
         private decimal ExtrairValorPago(string texto, decimal somaItens)
         {
-            var matchValorPago = Regex.Match(texto, @"Valor\s+pago\s+R?\$?:?\s*(\d+,\d{2})", RegexOptions.IgnoreCase);
-            if (matchValorPago.Success)
-            {
-                decimal valor = ConverterParaDecimal(matchValorPago.Groups[1].Value, _culturaBr);
-                Console.WriteLine($"[VALOR PAGO] Encontrado como 'Valor pago': R$ {valor:F2}");
-                return valor;
-            }
+            var matchValorPago = Regex.Match(texto, @"Valor\s+pago\s+R?\$?:?\s*(\d+[\.,]\d{2})", RegexOptions.IgnoreCase);
+            if (matchValorPago.Success) return ConverterParaDecimal(matchValorPago.Groups[1].Value, _culturaBr);
 
-            var matchValorAPagar = Regex.Match(texto, @"Valor\s+a\s+pagar\s+R?\$?:?\s*(\d+,\d{2})", RegexOptions.IgnoreCase);
-            if (matchValorAPagar.Success)
-            {
-                decimal valor = ConverterParaDecimal(matchValorAPagar.Groups[1].Value, _culturaBr);
-                Console.WriteLine($"[VALOR PAGO] Encontrado como 'Valor a pagar': R$ {valor:F2}");
-                return valor;
-            }
+            var matchTotal = Regex.Match(texto, @"(?:Total|TOTAL)\s*:?\s*R?\$?\s*(\d+[\.,]\d{2})", RegexOptions.IgnoreCase);
+            if (matchTotal.Success) return ConverterParaDecimal(matchTotal.Groups[1].Value, _culturaBr);
 
-            var matchTotal = Regex.Match(texto, @"(?:Total|TOTAL)\s*:?\s*R?\$?\s*(\d+,\d{2})", RegexOptions.IgnoreCase);
-            if (matchTotal.Success)
-            {
-                decimal valor = ConverterParaDecimal(matchTotal.Groups[1].Value, _culturaBr);
-                if (valor <= somaItens + 10 && valor > 0)
-                {
-                    Console.WriteLine($"[VALOR PAGO] Encontrado como 'Total': R$ {valor:F2}");
-                    return valor;
-                }
-            }
-
-            var matchValorTotal = Regex.Match(texto, @"Valor\s+total\s*:?\s*R?\$?\s*(\d+,\d{2})", RegexOptions.IgnoreCase);
-            if (matchValorTotal.Success)
-            {
-                decimal valor = ConverterParaDecimal(matchValorTotal.Groups[1].Value, _culturaBr);
-                if (valor <= somaItens + 10 && valor > 0)
-                {
-                    Console.WriteLine($"[VALOR PAGO] Encontrado como 'Valor total': R$ {valor:F2}");
-                    return valor;
-                }
-            }
-
-            var matchLiquido = Regex.Match(texto, @"L[ÍI]QUIDO\s*:?\s*R?\$?\s*(\d+,\d{2})", RegexOptions.IgnoreCase);
-            if (matchLiquido.Success)
-            {
-                decimal valor = ConverterParaDecimal(matchLiquido.Groups[1].Value, _culturaBr);
-                if (valor <= somaItens + 10 && valor > 0)
-                {
-                    Console.WriteLine($"[VALOR PAGO] Encontrado como 'Líquido': R$ {valor:F2}");
-                    return valor;
-                }
-            }
-
-            var matches = Regex.Matches(texto, @"\d+,\d{2}");
-            int totalMatches = matches.Count;
-
-            if (totalMatches >= 1)
-            {
-                string ultimoNumero = matches[totalMatches - 1].Value;
-                decimal valor = ConverterParaDecimal(ultimoNumero, _culturaBr);
-
-                if (valor > 0 && valor <= somaItens + 100)
-                {
-                    Console.WriteLine($"[VALOR PAGO] Fallback - último número: R$ {valor:F2}");
-                    return valor;
-                }
-
-                if (totalMatches >= 2)
-                {
-                    string penultimoNumero = matches[totalMatches - 2].Value;
-                    decimal valor2 = ConverterParaDecimal(penultimoNumero, _culturaBr);
-                    if (valor2 > 0 && valor2 <= somaItens + 100)
-                    {
-                        Console.WriteLine($"[VALOR PAGO] Fallback - penúltimo número: R$ {valor2:F2}");
-                        return valor2;
-                    }
-                }
-            }
-
-            Console.WriteLine($"[VALOR PAGO] Não encontrado, usando soma dos itens: R$ {somaItens:F2}");
             return somaItens;
-        }
-
-        private DateTime ExtrairDataDaString(string texto)
-        {
-            var matchEmissao = Regex.Match(texto, @"(?:Emissão|Data|Apresentação):\s*(?<data>\d{2}/\d{2}/\d{4})", RegexOptions.IgnoreCase);
-
-            if (matchEmissao.Success && DateTime.TryParseExact(matchEmissao.Groups["data"].Value, "dd/MM/yyyy", _culturaBr, DateTimeStyles.None, out var dataReal))
-            {
-                return dataReal;
-            }
-
-            var todasDatas = Regex.Matches(texto, @"(\d{2}/\d{2}/\d{4})");
-            for (int i = todasDatas.Count - 1; i >= 0; i--)
-            {
-                if (DateTime.TryParseExact(todasDatas[i].Value, "dd/MM/yyyy", _culturaBr, DateTimeStyles.None, out var data))
-                {
-                    if (data.Date == DateTime.Now.Date && todasDatas.Count > 1) continue;
-                    return data;
-                }
-            }
-            return DateTime.Now;
-        }
-
-        private decimal ExtrairValorLiquidoComProvaReal(string texto, decimal somaItens)
-        {
-            var matches = Regex.Matches(texto, @"(?<val>\d+,\d{2})");
-            var listaValores = matches.Cast<Match>().Select(m => m.Groups["val"].Value).ToList();
-
-            decimal maiorValorConfirmado = 0;
-
-            foreach (var valorTexto in listaValores)
-            {
-                decimal candidato = ConverterParaDecimal(valorTexto, _culturaBr);
-
-                if (Math.Abs(candidato - somaItens) < 0.01m) continue;
-
-                decimal diferenca = Math.Abs(somaItens - candidato);
-                string diferencaTexto = diferenca.ToString("N2", _culturaBr);
-
-                if (diferenca > 0 && listaValores.Contains(diferencaTexto))
-                {
-                    decimal possivelTotal = Math.Max(candidato, diferenca);
-                    if (possivelTotal > maiorValorConfirmado) maiorValorConfirmado = possivelTotal;
-                }
-            }
-
-            return maiorValorConfirmado > 0 ? maiorValorConfirmado : somaItens;
-        }
-
-        private string ClassificarAutomaticamente(string nomeProduto)
-        {
-            if (string.IsNullOrEmpty(nomeProduto)) return "Outros";
-
-            string nome = nomeProduto.ToUpper();
-            var mapeamento = new Dictionary<string, string[]>
-            {
-                { "Laticínios e Frios", new[] { "LEITE", "NINHO", "MUSSARELA", "QUEIJO", "DANONE", "IOG", "IOGURTE", "RICOTA", "APRESUNTADO", "AURORA", "BATAV", "FERM", "ELEGE" } },
-                { "Mercearia", new[] { "FEIJAO", "ARROZ", "OLEO", "SOYA", "AZEITE", "ANDOR", "ACUCAR", "CAFE", "3COR", "CORACOES", "CAPS", "MAC.", "D.BENTA", "ATUM", "MOLHO", "EKMA", "KISABOR", "SAC ASSA", "SACO", "MAND", "RAV", "MEZZ", "QJOS", "MIX SA", "GRANO" } },
-                { "Limpeza", new[] { "OMO", "VANISH", "LIMP.PERFUMADO", "DETERG", "AMACITEL", "SANOL", "ESPONJA", "SCOTCH", "BRITE", "PAPEL", "TOALHA", "BULNEZ", "GLADE", "DESODORIZADOR", "T.MANCHAS", "MANCHAS" } },
-                { "Higiene e Saúde", new[] { "SAB.", "DOVE", "REXONA", "DESOD.", "COLGATE", "CREME DENT", "SHAMP", "KARITE", "AERO", "BWELL", "MAG", "500MG", "NASOAR", "FRASCO", "ENVELO", "SUPLEMENTO", "VITAMINA", "REMEDIO", "FARMACIA", "DROGASIL", "DROGARAIA" } },
-                { "Hortifruti", new[] { "BATATA", "ALHO", "PEPINO", "ABOBORA", "CEBOLA", "TOMATE", "BANANA", "MACA", "LAVADA" } },
-                { "Snacks e Doces", new[] { "BISCOITO", "CLUB SOCIAL", "BOMBOM", "LACTA", "SALG.", "ELMA", "AMEND", "DOCE", "GUIMARAES", "CRACKER", "RANCHEIRO", "VIVALE", "BISC", "POLV" } },
-                { "Padaria", new[] { "PAO", "PULLMAN", "BISNAGUITO", "KIM", "TORRADA", "MASSA", "FORMA", "LEVE" } },
-                { "Bebidas", new[] { "REF.", "SPRITE", "COCO", "AGUA", "CRYSTAL", "SUCO", "CERVEJA", "CHA", "LEAO" } },
-                { "Pet Shop", new[] { "RACAO", "PEDIGREE", "DOG", "CAT", "BICHO" } },
-                { "Acougue", new[] { "CARNE", "FRANGO", "LINGUICA", "BIFE", "PERD.", "PERDIGAO" } },
-                { "Educacao", new[] { "FACULDADE", "FAAP", "CURSO", "LIVRO", "MENSALIDADE", "UDEMY" } }
-            };
-
-            foreach (var categoria in mapeamento)
-            {
-                if (categoria.Value.Any(keyword => nome.Contains(keyword)))
-                    return categoria.Key;
-            }
-
-            return "Outros";
-        }
-
-        private string ClassificarNotaPorItens(List<ItemLancamento> itens)
-        {
-            if (itens == null || !itens.Any()) return "Outros";
-            var categoriasContagem = itens.GroupBy(i => ClassificarAutomaticamente(i.Descricao))
-                                          .OrderByDescending(g => g.Count())
-                                          .First().Key;
-            return categoriasContagem;
-        }
-
-        private void ProcessarEstabelecimentoPdf(string textoBruto, Lancamento lancamento)
-        {
-            string texto = textoBruto.ToUpper();
-            string empresa = ExtrairEmpresa(texto);
-            string endereco = ExtrairEndereco(texto);
-
-            if (!string.IsNullOrEmpty(empresa))
-                lancamento.Descricao = string.IsNullOrEmpty(endereco) ? empresa : $"{empresa} - {endereco}";
-            else
-                lancamento.Descricao = $"NOTA FISCAL PDF - {lancamento.DataEmissao:dd/MM/yyyy}";
-
-            lancamento.Descricao = Regex.Replace(lancamento.Descricao, @"\s+", " ").Trim();
-        }
-
-        private string ExtrairEmpresa(string texto)
-        {
-            if (texto.Contains("RAIADROGASIL")) return "RAIADROGASIL S.A.";
-            if (texto.Contains("WMS SUPERMERCADOS")) return "WMS SUPERMERCADOS (SONDA/WALMART)";
-            if (texto.Contains("SENDAS")) return "SENDAS DISTRIBUIDORA (ASSAI)";
-
-            var matchCnpj = Regex.Match(texto, @"([A-Z\s\.]{5,80}?)\s*CNPJ:", RegexOptions.IgnoreCase);
-            return matchCnpj.Success ? matchCnpj.Groups[1].Value.Trim() : "";
-        }
-
-        private string ExtrairEndereco(string texto)
-        {
-            var match = Regex.Match(texto, @"(?<tipo>RUA|AV|AVENIDA|ALAMEDA)\s+(?<nome>[^,]+),\s*(?<num>\d+)", RegexOptions.IgnoreCase);
-            return match.Success ? $"{match.Groups["tipo"].Value} {match.Groups["nome"].Value}, {match.Groups["num"].Value}" : "";
-        }
-
-        private List<ItemLancamento> ProcessarItensDoPdf(string textoUmaLinha, string descricao)
-        {
-            if (descricao.Contains("WMS")) return ProcessarItensWms(textoUmaLinha);
-            if (textoUmaLinha.Contains("BWELL") || textoUmaLinha.Contains("DROGA")) return ProcessarItensRaia(textoUmaLinha);
-            return ProcessarItensGenerico(textoUmaLinha);
-        }
-
-        private List<ItemLancamento> ProcessarItensWms(string texto)
-        {
-            var itens = new List<ItemLancamento>();
-            var pattern = new Regex(@"(?<nome>[A-Z][A-Z\s\.]+?)\s*\(Código:.*?\)\s*Qtde\.:\s*(?<qtd>[\d\.,]+).*?Unit\.:\s*(?<preco>\d+,\d{2})", RegexOptions.IgnoreCase);
-            foreach (Match m in pattern.Matches(texto))
-            {
-                itens.Add(new ItemLancamento
-                {
-                    Descricao = m.Groups["nome"].Value.Trim(),
-                    Quantidade = (double)ConverterParaDecimal(m.Groups["qtd"].Value, _culturaBr),
-                    Preco = ConverterParaDecimal(m.Groups["preco"].Value, _culturaBr),
-                    Comprado = true
-                });
-            }
-            return itens;
-        }
-
-        private List<ItemLancamento> ProcessarItensRaia(string texto)
-        {
-            var itens = new List<ItemLancamento>();
-            var pattern = new Regex(@"(?<nome>[A-Z\d\s\-]{3,40})\s*\(Código:\s*\d+\)\s*Vl\.\s*Unit\.:\s*(?<preco>\d+,\d{2})\s*Qtde\.:(?<qtd>\d+)", RegexOptions.IgnoreCase);
-            foreach (Match m in pattern.Matches(texto))
-            {
-                itens.Add(new ItemLancamento
-                {
-                    Descricao = m.Groups["nome"].Value.Trim(),
-                    Quantidade = (double)ConverterParaDecimal(m.Groups["qtd"].Value, _culturaBr),
-                    Preco = ConverterParaDecimal(m.Groups["preco"].Value, _culturaBr),
-                    Comprado = true
-                });
-            }
-            return itens;
-        }
-
-        private List<ItemLancamento> ProcessarItensGenerico(string texto)
-        {
-            var itens = new List<ItemLancamento>();
-            var pattern = new Regex(@"(?<nome>[A-Z\s]{3,}).*?Qtde\.:\s*(?<qtd>[\d\.,]+).*?Unit\.:\s*(?<preco>\d+,\d{2})", RegexOptions.IgnoreCase);
-            foreach (Match m in pattern.Matches(texto))
-            {
-                itens.Add(new ItemLancamento
-                {
-                    Descricao = m.Groups["nome"].Value.Trim(),
-                    Quantidade = (double)ConverterParaDecimal(m.Groups["qtd"].Value, _culturaBr),
-                    Preco = ConverterParaDecimal(m.Groups["preco"].Value, _culturaBr),
-                    Comprado = true
-                });
-            }
-            return itens;
         }
 
         private decimal ConverterParaDecimal(string valor, CultureInfo cultura)
@@ -494,13 +325,7 @@ namespace FinanceiroApi.Services
 
         private Lancamento CriarLancamentoBase(string userId)
         {
-            return new Lancamento
-            {
-                UsuarioId = userId,
-                Tipo = "despesa",
-                CategoriaId = 1,
-                Itens = new List<ItemLancamento>()
-            };
+            return new Lancamento { UsuarioId = userId, Tipo = "despesa", CategoriaId = 2, Itens = new List<ItemLancamento>() };
         }
     }
 }

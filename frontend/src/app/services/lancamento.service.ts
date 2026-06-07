@@ -73,6 +73,17 @@ export class LancamentoService {
     );
   }
 
+
+
+getGastosCategoria(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.apiUrl}/gastos-categoria`);
+  }
+
+  getGastosAnuaisPorCategoria(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.apiUrl}/gastos-anuais`);
+  }
+
+  
   excluir(id: number): Observable<void> {
 
     return this.getHeaders().pipe(

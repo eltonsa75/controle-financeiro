@@ -43,8 +43,6 @@ namespace FinanceiroApi.Controllers
             }
         }
 
-        // 🎯 AJUSTADO: Agora aceita o parâmetro opcional 'tipo' (mensal ou anual)
-        // GET: api/categorias/status?mes=5&ano=2026&tipo=anual
         [HttpGet("status")]
         public async Task<IActionResult> GetStatus(int mes, int ano, string tipo = "mensal")
         {
@@ -58,31 +56,22 @@ namespace FinanceiroApi.Controllers
                     .ToListAsync();
 
                 var resultado = categorias.Select(c => {
-                    // 1. Começa filtrando os lançamentos pela Categoria e pelo Ano selecionado
+                    // 🎯 TESTE: Removendo o filtro de mês/ano para ver se o gasto aparece
                     var query = _context.Lancamentos
-                        .Where(l => l.CategoriaId == c.Id && l.Data.Year == ano);
+                        .Where(l => l.CategoriaId == c.Id);
 
-                    // 2. Se o tipo for 'mensal', aplica também o filtro do mês
-                    if (tipo.ToLower() == "mensal")
-                    {
-                        query = query.Where(l => l.Data.Month == mes);
-                    }
-
-                    var gastos = query.Sum(l => (decimal?)l.Valor) ?? 0;
-
-                    // 3. Se for 'anual', calcula a meta multiplicada por 12 meses
-                    var metaEfetiva = tipo.ToLower() == "anual" ? c.MetaMensal * 12 : c.MetaMensal;
+                    // O .Sum agora vai somar TODA a história dessa categoria
+                    var gastos = query.Sum(l => (decimal?)Math.Abs(l.Valor)) ?? 0;
 
                     return new
                     {
                         c.Id,
                         c.Nome,
-                        // Mantemos o nome 'MetaMensal' no JSON de retorno para o Angular não quebrar o mapeamento
-                        MetaMensal = metaEfetiva,
+                        MetaMensal = c.MetaMensal,
                         c.CorHex,
                         c.PalavrasChave,
                         GastoAtual = gastos,
-                        Percentual = metaEfetiva > 0 ? (Math.Abs(gastos) / metaEfetiva) * 100 : 0
+                        Percentual = c.MetaMensal > 0 ? (gastos / c.MetaMensal) * 100 : 0
                     };
                 }).ToList();
 

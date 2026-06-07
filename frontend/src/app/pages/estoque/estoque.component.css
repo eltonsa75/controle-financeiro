@@ -1,0 +1,55 @@
+/* Container Geral da Paginação */
+.paginacao-container {
+  display: flex;
+  align-items: center;
+}
+
+/* Estilo Base dos Blocos de Botão */
+.btn-bloco-pag {
+  width: 42px;
+  height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #dee2e6;
+  background-color: #ffffff;
+  color: #3d434a;
+  font-weight: 600;
+  font-size: 0.95rem;
+  border-radius: 8px; /* Cantos levemente arredondados como a imagem */
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+}
+
+/* Efeito de Hover (Passar o Mouse) */
+.btn-bloco-pag:hover:not(:disabled):not(.active) {
+  background-color: #f8f9fa;
+  border-color: #ced4da;
+  color: #212529;
+}
+
+/* Estilo do Bloco Ativo (Página Atual Selecionada) */
+.btn-bloco-pag.active {
+  background-color: #3b91f7; /* Azul vivo da imagem */
+  border-color: #3b91f7;
+  color: #ffffff;
+}
+
+/* Estado Desabilitado (Setas nas extremidades) */
+.btn-bloco-pag:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  background-color: #f8f9fa;
+}
+
+/* Estilo do bloco fixo de reticências (...) */
+.bloco-ellipsis {
+  width: 42px;
+  height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #495057;
+  font-weight: bold;
+  font-size: 1.1rem;
+}
