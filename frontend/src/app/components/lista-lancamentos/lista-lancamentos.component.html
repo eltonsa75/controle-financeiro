@@ -92,3 +92,71 @@
     </div>
   </div>
 </div>
+
+<div class="modal fade" [class.show]="exibirModal" [style.display]="exibirModal ? 'block' : 'none'" tabindex="-1" role="dialog">
+  <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+    <div class="modal-content border-0 shadow-lg" style="border-radius: 16px;">
+      
+      <div class="modal-header bg-primary text-white py-3" style="border-top-left-radius: 16px; border-top-right-radius: 16px;">
+        <h5 class="modal-title fw-bold d-flex align-items-center gap-2">
+          <i class="bi bi-receipt-cutoff"></i> Itens do Lançamento
+        </h5>
+        <button type="button" class="btn-close btn-close-white" (click)="fecharModal()" aria-label="Close"></button>
+      </div>
+
+      <div class="modal-body p-4" *ngIf="itemSelecionado">
+        
+        <div class="row g-3 mb-4 bg-light p-3 rounded-3 border">
+          <div class="col-md-6">
+            <label class="text-muted text-uppercase fw-bold mb-1 d-block" style="font-size: 0.7rem; letter-spacing: 0.5px;">Estabelecimento / Descrição</label>
+            <span class="fw-bold text-dark fs-6">{{ itemSelecionado.descricao }}</span>
+          </div>
+          <div class="col-6 col-md-3">
+            <label class="text-muted text-uppercase fw-bold mb-1 d-block" style="font-size: 0.7rem; letter-spacing: 0.5px;">Data de Emissão</label>
+            <span class="text-dark fw-semibold">{{ itemSelecionado.dataEmissao | date: 'dd/MM/yyyy' }}</span>
+          </div>
+          <div class="col-6 col-md-3 text-md-end">
+            <label class="text-muted text-uppercase fw-bold mb-1 d-block" style="font-size: 0.7rem; letter-spacing: 0.5px;">Valor Total</label>
+            <span class="fs-5 fw-bold" [ngClass]="itemSelecionado.tipo.toLowerCase() === 'receita' ? 'text-success' : 'text-danger'">
+              {{ itemSelecionado.valor | currency: 'BRL' }}
+            </span>
+          </div>
+        </div>
+
+        <h6 class="fw-bold text-secondary mb-3 d-flex align-items-center gap-2">
+          <i class="bi bi-list-stars text-primary"></i> Produtos / Serviços Cadastrados
+        </h6>
+
+        <div *ngIf="itensSelecionados.length === 0" class="alert alert-warning text-center py-3 border-0 shadow-sm">
+          <i class="bi bi-exclamation-triangle-fill me-2"></i>
+          Nenhum item detalhado foi retornado para este lançamento.
+        </div>
+
+        <div class="table-responsive border rounded-3" style="max-height: 300px; overflow-y: auto;" *ngIf="itensSelecionados.length > 0">
+          <table class="table table-striped table-hover align-middle mb-0">
+            <thead class="table-light sticky-top shadow-sm">
+              <tr style="font-size: 0.8rem;" class="text-secondary text-uppercase">
+                <th style="width: 70%">Descrição do Item</th>
+                <th class="text-center" style="width: 15%">Qtd</th>
+                <th class="text-end" style="width: 15%">Vl. Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let prod of itensSelecionados" style="font-size: 0.85rem;">
+                <td class="fw-semibold text-dark text-uppercase">{{ prod.descricao }}</td>
+                <td class="text-center text-secondary fw-bold">{{ prod.quantidade || 1 }}</td>
+                <td class="text-end fw-bold text-dark">{{ ((prod.valorTotal || prod.valor_total || prod.valor || prod.preco) | currency: 'BRL' : 'symbol' : '1.2-2')?.replace('R$', 'R$ ') }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+      </div> <div class="modal-footer bg-light border-top-0 py-2.5" style="border-bottom-left-radius: 16px; border-bottom-right-radius: 16px;">
+        <button type="button" class="btn btn-secondary fw-semibold px-4" (click)="fecharModal()">Fechar</button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop fade show" *ngIf="exibirModal"></div>

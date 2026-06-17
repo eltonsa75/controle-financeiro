@@ -1,57 +1,44 @@
 <div class="container-fluid py-4">
   
-  <div class="row mb-4 align-items-center">
-    <div class="col-md-6 d-flex align-items-center gap-3">
-      <button class="btn btn-outline-primary" (click)="alterarMes(-1)">
+  <div class="row mb-4 align-items-center g-3">
+    <div class="col-md-5 d-flex align-items-center gap-2">
+      <button class="btn btn-outline-primary d-flex align-items-center gap-2" (click)="alterarMes(-1)">
         <i class="fas fa-chevron-left"></i> Anterior
       </button>
-      <h3 class="m-0 fw-bold text-secondary text-uppercase" style="min-width: 180px; text-align: center;">
+      <h3 class="m-0 fw-bold text-dark text-uppercase fs-4 lh-base" style="min-width: 160px; text-align: center; letter-spacing: 0.5px;">
         {{ getNomeMes(mesSelecionado) }} / {{ anoSelecionado }}
       </h3>
-      <button class="btn btn-outline-primary" (click)="alterarMes(1)">
+      <button class="btn btn-outline-primary d-flex align-items-center gap-2" (click)="alterarMes(1)">
         Próximo <i class="fas fa-chevron-right"></i>
       </button>
     </div>
     
-    <div class="col-md-6 text-end">
-      <div class="input-group">
-        <input type="text" class="form-control" placeholder="Cole a URL ou Chave da Nota Fiscal" [(ngModel)]="urlNota" name="urlNota">
-        <button class="btn btn-success" type="button" (click)="importarNota()" [disabled]="!urlNota">
+    <div class="col-md-7 d-flex justify-content-end">
+      <div class="input-group shadow-sm" style="max-width: 480px; width: 100%;">
+        <span class="input-group-text bg-white border-end-0 text-muted">
+          <i class="fas fa-barcode"></i>
+        </span>
+        <input type="text" class="form-control border-start-0 ps-1" placeholder="Cole a URL ou Chave da Nota Fiscal" [(ngModel)]="urlNota" name="urlNota">
+        <button class="btn btn-success fw-bold d-flex align-items-center gap-2" type="button" (click)="importarNota()" [disabled]="!urlNota">
           <i class="fas fa-file-import"></i> Importar Nota
         </button>
       </div>
     </div>
   </div>
 
-  <hr class="mb-4">
+  <hr class="mb-4 opacity-50">
 
   <div class="row mb-4">
     <div class="col-xl-3 col-md-6 mb-4">
-      <div class="card border-left-success shadow h-100 py-2 bg-white">
-        <div class="card-body">
-          <div class="row no-gutters align-items-center">
-            <div class="col mr-2">
-              <div class="text-xs font-weight-bold text-success text-uppercase mb-1">Receitas (Mês)</div>
-              <div class="h5 mb-0 font-weight-bold text-gray-800">{{ formatarMoeda(totalReceitas) }}</div>
+      <div class="card border-0 border-start border-success border-4 shadow-sm h-100 py-3 bg-white">
+        <div class="card-body py-2">
+          <div class="row align-items-center">
+            <div class="col ps-3">
+              <div class="text-xs font-weight-bold text-success text-uppercase mb-1" style="letter-spacing: 0.8px; font-size: 0.75rem;">Receitas (Mês)</div>
+              <div class="h4 mb-0 font-weight-bold text-dark fs-3">{{ formatarMoeda(totalReceitas) }}</div>
             </div>
-            <div class="col-auto">
-              <i class="fas fa-arrow-circle-up fa-2x text-success"></i>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="col-xl-3 col-md-6 mb-4">
-      <div class="card border-left-danger shadow h-100 py-2 bg-white">
-        <div class="card-body">
-          <div class="row no-gutters align-items-center">
-            <div class="col mr-2">
-              <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">Despesas (Mês)</div>
-              <div class="h5 mb-0 font-weight-bold text-gray-800">{{ formatarMoeda(totalDespesas) }}</div>
-            </div>
-            <div class="col-auto">
-              <i class="fas fa-arrow-circle-down fa-2x text-danger"></i>
+            <div class="col-auto pe-3">
+              <i class="fas fa-arrow-circle-up fa-2x text-success opacity-75"></i>
             </div>
           </div>
         </div>
@@ -59,18 +46,34 @@
     </div>
 
     <div class="col-xl-3 col-md-6 mb-4">
-      <div class="card border-left-info shadow h-100 py-2 bg-white" 
-           [ngClass]="{'border-left-success': saldoMes >= 0, 'border-left-danger': saldoMes < 0}">
-        <div class="card-body">
-          <div class="row no-gutters align-items-center">
-            <div class="col mr-2">
-              <div class="text-xs font-weight-bold text-info text-uppercase mb-1">Saldo do Mês</div>
-              <div class="h5 mb-0 font-weight-bold" [ngClass]="{'text-success': saldoMes >= 0, 'text-danger': saldoMes < 0}">
+      <div class="card border-0 border-start border-danger border-4 shadow-sm h-100 py-3 bg-white">
+        <div class="card-body py-2">
+          <div class="row align-items-center">
+            <div class="col ps-3">
+              <div class="text-xs font-weight-bold text-danger text-uppercase mb-1" style="letter-spacing: 0.8px; font-size: 0.75rem;">Despesas (Mês)</div>
+              <div class="h4 mb-0 font-weight-bold text-dark fs-3">{{ formatarMoeda(totalDespesas) }}</div>
+            </div>
+            <div class="col-auto pe-3">
+              <i class="fas fa-arrow-circle-down fa-2x text-danger opacity-75"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6 mb-4">
+      <div class="card border-0 shadow-sm h-100 py-3 bg-white" 
+           [ngClass]="{'border-start border-success border-4': saldoMes >= 0, 'border-start border-danger border-4': saldoMes < 0}">
+        <div class="card-body py-2">
+          <div class="row align-items-center">
+            <div class="col ps-3">
+              <div class="text-xs font-weight-bold text-secondary text-uppercase mb-1" style="letter-spacing: 0.8px; font-size: 0.75rem;">Saldo do Mês</div>
+              <div class="h4 mb-0 font-weight-bold fs-3" [ngClass]="{'text-success': saldoMes >= 0, 'text-danger': saldoMes < 0}">
                 {{ formatarMoeda(saldoMes) }}
               </div>
             </div>
-            <div class="col-auto">
-              <i class="fas fa-scale-balanced fa-2x text-info"></i>
+            <div class="col-auto pe-3">
+              <i class="fas fa-scale-balanced fa-2x opacity-75" [ngClass]="{'text-success': saldoMes >= 0, 'text-danger': saldoMes < 0}"></i>
             </div>
           </div>
         </div>
@@ -78,15 +81,15 @@
     </div>
 
     <div class="col-xl-3 col-md-6 mb-4">
-      <div class="card border-left-warning shadow h-100 py-2 bg-white">
-        <div class="card-body">
-          <div class="row no-gutters align-items-center">
-            <div class="col mr-2">
-              <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">Saldo Geral Total</div>
-              <div class="h5 mb-0 font-weight-bold text-gray-800">{{ formatarMoeda(saldoTotal) }}</div>
+      <div class="card border-0 border-start border-warning border-4 shadow-sm h-100 py-3 bg-white">
+        <div class="card-body py-2">
+          <div class="row align-items-center">
+            <div class="col ps-3">
+              <div class="text-xs font-weight-bold text-warning-dark text-uppercase mb-1" style="letter-spacing: 0.8px; font-size: 0.75rem; color: #b58105;">Saldo Geral Total</div>
+              <div class="h4 mb-0 font-weight-bold text-dark fs-3">{{ formatarMoeda(saldoTotal) }}</div>
             </div>
-            <div class="col-auto">
-              <i class="fas fa-wallet fa-2x text-warning"></i>
+            <div class="col-auto pe-3">
+              <i class="fas fa-wallet fa-2x text-warning opacity-75"></i>
             </div>
           </div>
         </div>
@@ -96,11 +99,13 @@
 
   <div class="row">
     <div class="col-xl-8 col-lg-7 mb-4">
-      <div class="card shadow mb-4 h-100 bg-white">
-        <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between bg-light border-bottom">
-          <h6 class="m-0 font-weight-bold text-primary text-uppercase"><i class="fas fa-chart-line me-2"></i>Evolução Financeira Histórica</h6>
+      <div class="card border-0 shadow-sm mb-4 h-100 bg-white" style="border-radius: 12px;">
+        <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between bg-white border-0">
+          <h6 class="m-0 font-weight-bold text-dark text-uppercase" style="font-size: 0.9rem; letter-spacing: 0.5px;">
+            <i class="fas fa-chart-line me-2 text-primary"></i>Evolução Financeira Histórica
+          </h6>
         </div>
-        <div class="card-body">
+        <div class="card-body pt-0">
           <div class="chart-area" style="position: relative; height: 320px;">
             <canvas #canvasEvolucao></canvas>
           </div>
@@ -109,12 +114,14 @@
     </div>
 
     <div class="col-xl-4 col-lg-5 mb-4">
-      <div class="card shadow mb-4 h-100 bg-white">
-        <div class="card-header py-3 bg-light border-bottom">
-          <h6 class="m-0 font-weight-bold text-primary text-uppercase"><i class="fas fa-chart-pie me-2"></i>Distribuição por Categoria</h6>
+      <div class="card border-0 shadow-sm mb-4 h-100 bg-white" style="border-radius: 12px;">
+        <div class="card-header py-3 bg-white border-0">
+          <h6 class="m-0 font-weight-bold text-dark text-uppercase" style="font-size: 0.9rem; letter-spacing: 0.5px;">
+            <i class="fas fa-chart-pie me-2 text-primary"></i>Distribuição por Categoria
+          </h6>
         </div>
-        <div class="card-body d-flex align-items-center justify-content-center">
-          <div class="chart-pie" style="position: relative; height: 260px; width: 100%;">
+        <div class="card-body d-flex align-items-center justify-content-center pt-0">
+          <div class="chart-pie" style="position: relative; height: 280px; width: 100%;">
             <canvas #canvasCategorias></canvas>
           </div>
         </div>
@@ -124,12 +131,14 @@
 
   <div class="row mt-2">
     <div class="col-12 mb-4">
-      <div class="card shadow mb-4 bg-white">
-        <div class="card-header py-3 bg-light border-bottom">
-          <h6 class="m-0 font-weight-bold text-primary text-uppercase"><i class="fas fa-ranking-star me-2"></i>Top 10 Itens Mais Caros do Período</h6>
+      <div class="card border-0 shadow-sm mb-4 bg-white" style="border-radius: 12px;">
+        <div class="card-header py-3 bg-white border-0">
+          <h6 class="m-0 font-weight-bold text-dark text-uppercase" style="font-size: 0.9rem; letter-spacing: 0.5px;">
+            <i class="fas fa-ranking-star me-2 text-primary"></i>Top 10 Itens Mais Caros do Período
+          </h6>
         </div>
-        <div class="card-body">
-          <div class="chart-bar" style="position: relative; height: 350px;">
+        <div class="card-body pt-0">
+          <div class="chart-bar" style="position: relative; height: 360px;">
             <canvas #canvasCarosRef></canvas>
           </div>
         </div>

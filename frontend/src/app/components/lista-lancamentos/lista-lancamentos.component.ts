@@ -8,8 +8,6 @@ import { Lancamento } from '../../models/financeiro.model';
 import Swal from 'sweetalert2';
 import { firstValueFrom } from 'rxjs';
 
-declare var bootstrap: any;
-
 @Component({
   selector: 'app-lista-lancamentos',
   standalone: true,
@@ -24,8 +22,10 @@ export class ListaLancamentosComponent implements OnInit {
   carregando: boolean = true; 
   mesAnoSelecionado: string = ''; 
 
-  itensSelecionados: any[] = [];
-  lancamentoSelecionado: Lancamento | null = null;
+  // --- VARIÁVEIS DO MODAL ADAPTADAS PARA O REATIVO DO ANGULAR ---
+  exibirModal: boolean = false;
+  itemSelecionado: any = null; 
+  itensSelecionados: any[] = []; // Guarda a lista de sub-itens se houver
 
   paginaAtual: number = 1;
   itensPorPagina: number = 10;
@@ -66,29 +66,38 @@ export class ListaLancamentosComponent implements OnInit {
     });
   }
 
-  // --- MÉTODO RECUPERADO ---
+  // --- MÉTODO MODIFICADO PARA COMPATIBILIDADE REATIVA ---
   abrirModalItens(lancamento: Lancamento) {
-    this.lancamentoSelecionado = lancamento;
-    this.paginaAtual = 1; 
-
-    Swal.fire({ title: 'Buscando itens...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+    // Definimos o card principal selecionado para alimentar o cabeçalho do modal
+    this.itemSelecionado = lancamento;
+    
+    Swal.fire({ 
+      title: 'Buscando itens...', 
+      allowOutsideClick: false, 
+      didOpen: () => Swal.showLoading() 
+    });
 
     this.financeiroService.getItensPorLancamento(lancamento.id!).subscribe({
       next: (data) => {
         this.itensSelecionados = data || [];
         Swal.close();
         
-        const modalElement = document.getElementById('modalItens');
-        if (modalElement) { 
-          const modalInstance = new bootstrap.Modal(modalElement);
-          modalInstance.show(); 
-        }
+        // Ativa a reatividade do Angular para renderizar o Modal na tela
+        this.exibirModal = true;
       },
-      error: () => {
+      error: (err) => {
+        console.error('Erro ao buscar itens:', err);
         this.itensSelecionados = [];
         Swal.fire('Erro', 'Não foi possível carregar os itens.', 'error');
       }
     });
+  }
+
+  // --- MÉTODO PARA FECHAR O MODAL NO BOTÃO OU BACKDROP ---
+  fecharModal(): void {
+    this.exibirModal = false;
+    this.itemSelecionado = null;
+    this.itensSelecionados = [];
   }
 
   onPageChange(novaPagina: number): void {
@@ -108,7 +117,7 @@ export class ListaLancamentosComponent implements OnInit {
       Swal.fire({ icon: 'success', title: 'Sucesso', text: 'Lançamentos salvos!', timer: 1500 });
       this.carregarLancamentos();
     } catch (error) {
-      Swal.fire('Erro', 'Problema ao salvar alguns itens.', 'error');
+      Swal.fire('Erro', 'Problema ao salvar some itens.', 'error');
     }
   }
 

@@ -13,7 +13,8 @@ export interface ItemCaro {
   local?: string;
 }
 
-const CORES_PALETA = ['#e74c3c', '#3498db', '#f1c40f', '#2ecc71', '#9b59b6', '#e67e22'];
+// Expandimos e modernizamos um pouco a paleta de cores para os gráficos
+const CORES_PALETA = ['#635bff', '#2ecc71', '#3498db', '#f1c40f', '#e74c3c', '#9b59b6', '#e67e22', '#1abc9c', '#34495e'];
 
 @Component({
   selector: 'app-dashboard',
@@ -69,24 +70,23 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     }).format(valor);
   }
 
-alterarMes(delta: number): void {
-  // O PULO DO GATO: Se o usuário estiver em Janeiro de 2026 e tentar voltar (-1), o código barra na hora
-  if (this.mesSelecionado === 1 && this.anoSelecionado === 2026 && delta === -1) {
-    console.log('[DEBUG] Navegação bloqueada: Limite mínimo é Janeiro de 2026.');
-    return;
-  }
+  alterarMes(delta: number): void {
+    if (this.mesSelecionado === 1 && this.anoSelecionado === 2026 && delta === -1) {
+      console.log('[DEBUG] Navegação bloqueada: Limite mínimo é Janeiro de 2026.');
+      return;
+    }
 
-  this.mesSelecionado += delta;
-  if (this.mesSelecionado > 12) {
-    this.mesSelecionado = 1;
-    this.anoSelecionado++;
-  } else if (this.mesSelecionado < 1) {
-    this.mesSelecionado = 12;
-    this.anoSelecionado--;
+    this.mesSelecionado += delta;
+    if (this.mesSelecionado > 12) {
+      this.mesSelecionado = 1;
+      this.anoSelecionado++;
+    } else if (this.mesSelecionado < 1) {
+      this.mesSelecionado = 12;
+      this.anoSelecionado--;
+    }
+    
+    this.carregarDadosMensais();
   }
-  
-  this.carregarDadosMensais();
-}
 
   carregarDadosMensais(): void {
     this.carregarResumoCard();
@@ -97,8 +97,6 @@ alterarMes(delta: number): void {
   carregarResumoCard(): void {
     this.financeiroService.getResumoMensal(this.mesSelecionado, this.anoSelecionado).subscribe({
       next: (resposta: ResumoMensalResponse) => {
-        console.log('[DEBUG DASHBOARD] Resumo recebido do back-end:', resposta);
-        
         this.totalReceitas = resposta.receitas || 0;
         this.totalDespesas = Math.abs(resposta.despesas || 0); 
         this.saldoMes = resposta.saldo || 0;
@@ -115,14 +113,8 @@ alterarMes(delta: number): void {
   carregarEvolucaoMensal(): void {
     this.financeiroService.getEvolucaoMensal().subscribe({
       next: (dados: EvolucaoMensalResponse) => {
-        if (!this.canvasEvolucaoRef?.nativeElement || !dados || !dados.meses || dados.meses.length === 0) {
-          console.log('[DEBUG GRAPH] Sem dados estruturados para o gráfico de evolução histórica');
-          return;
-        }
+        if (!this.canvasEvolucaoRef?.nativeElement || !dados || !dados.meses || dados.meses.length === 0) return;
 
-        console.log('[DEBUG GRAPH] Resposta estruturada recebida do back-end:', dados);
-
-        // Alimentação direta mapeada com base no contrato unificado do back-end
         const labels = dados.meses;
         const datasetReceitas = dados.receitas;
         const datasetDespesas = dados.despesas;
@@ -137,11 +129,11 @@ alterarMes(delta: number): void {
               {
                 label: 'Receitas',
                 data: datasetReceitas,
-                borderColor: '#28a745',
-                backgroundColor: 'rgba(40, 167, 69, 0.05)',
-                tension: 0.3,
+                borderColor: '#2ecc71',
+                backgroundColor: 'rgba(46, 204, 113, 0.04)',
+                tension: 0.35,
                 fill: true,
-                pointBackgroundColor: '#28a745',
+                pointBackgroundColor: '#2ecc71',
                 pointBorderColor: '#fff',
                 pointRadius: 4,
                 pointHoverRadius: 6
@@ -149,11 +141,11 @@ alterarMes(delta: number): void {
               {
                 label: 'Despesas',
                 data: datasetDespesas,
-                borderColor: '#dc3545',
-                backgroundColor: 'rgba(220, 53, 69, 0.05)',
-                tension: 0.3,
+                borderColor: '#e74c3c',
+                backgroundColor: 'rgba(231, 76, 60, 0.04)',
+                tension: 0.35,
                 fill: true,
-                pointBackgroundColor: '#dc3545',
+                pointBackgroundColor: '#e74c3c',
                 pointBorderColor: '#fff',
                 pointRadius: 4,
                 pointHoverRadius: 6
@@ -164,29 +156,41 @@ alterarMes(delta: number): void {
             responsive: true,
             maintainAspectRatio: false,
             plugins: {
+              legend: {
+                position: 'top',
+                labels: { boxWidth: 15, font: { size: 12, weight: 500 } }
+              },
               tooltip: {
                 callbacks: {
                   label: (context: any) => {
                     const value = context.raw as number;
-                    return `${context.dataset.label}: R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+                    return ` ${context.dataset.label}: R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
                   }
                 }
               },
               datalabels: {
                 display: true,
                 align: 'top',
-                backgroundColor: 'rgba(0,0,0,0.7)',
+                backgroundColor: 'rgba(255,255,255,0.9)', // Fundo claro para contrastar com as linhas de grade
                 borderRadius: 4,
-                padding: { left: 6, right: 6, top: 2, bottom: 2 },
-                color: 'white',
+                borderWidth: 1,
+                borderColor: '#e5e7eb',
+                padding: { left: 6, right: 6, top: 4, bottom: 4 },
+                color: '#1f2937', // Texto escuro mais refinado
                 font: { weight: 'bold', size: 10 },
                 formatter: (value: number) => value > 0 ? `R$ ${value.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}` : ''
               }
             },
             scales: {
+              x: {
+                grid: { display: false } // Remove as grades verticais que poluem
+              },
               y: {
                 beginAtZero: true,
+                border: { display: false }, // Remove a linha preta rígida do eixo Y
+                grid: { color: '#f3f4f6' }, // Grades horizontais super suaves e discretas
                 ticks: {
+                  color: '#9ca3af',
                   callback: (value: any) => `R$ ${Number(value).toLocaleString('pt-BR')}`
                 }
               }
@@ -211,20 +215,36 @@ alterarMes(delta: number): void {
             datasets: [{
               data: dadosDoBanco.map(d => d.valor),
               backgroundColor: CORES_PALETA,
-              borderWidth: 1
+              borderWidth: 2,
+              borderColor: '#ffffff'
             }]
           },
           options: { 
             responsive: true,
             maintainAspectRatio: false,
             plugins: { 
+              legend: {
+                position: 'right', // Joga as legendas para a direita na vertical, impedindo o achatamento da rosca
+                labels: {
+                  boxWidth: 12,
+                  padding: 12,
+                  font: { size: 11, weight: 500 },
+                  color: '#4b5563'
+                }
+              },
               datalabels: { 
                 display: true,
-                formatter: (value: number) => `R$ ${value.toLocaleString('pt-BR')}`,
-                backgroundColor: 'rgba(0,0,0,0.6)',
+                // Mostra apenas valores significativos no gráfico para não amontoar números pequenos
+                formatter: (value: number, context: any) => {
+                  const dataset = context.dataset.data;
+                  const total = dataset.reduce((acc: number, val: number) => acc + val, 0);
+                  const percentual = (value / total) * 100;
+                  return percentual > 4 ? `R$ ${value.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}` : '';
+                },
+                backgroundColor: 'rgba(255,255,255,0.85)',
                 borderRadius: 4,
                 padding: 4,
-                color: 'white',
+                color: '#1f2937',
                 font: { weight: 'bold', size: 10 }
               } 
             } 
@@ -244,36 +264,50 @@ alterarMes(delta: number): void {
         this.chartCaros = new Chart(this.canvasCarosRef.nativeElement, {
           type: 'bar',
           data: {
-            labels: itens.map(i => i.descricao.length > 15 ? i.descricao.substring(0, 15) + '...' : i.descricao),
+            labels: itens.map(i => i.descricao.length > 18 ? i.descricao.substring(0, 18) + '...' : i.descricao),
             datasets: [{
               label: 'Valor (R$)',
               data: itens.map(i => i.valorTotal),
-              backgroundColor: '#3498db',
-              borderRadius: 5
+              backgroundColor: 'rgba(99, 91, 255, 0.85)', // Usando o roxo identitário do seu app
+              hoverBackgroundColor: '#635bff',
+              borderRadius: 6, // Cantos arredondados modernos nas pontas das barras
+              borderSkipped: false
             }]
           },
           options: {
-            indexAxis: 'y',
+            indexAxis: 'y', // Mantém o gráfico na horizontal (modo ranking)
             responsive: true,
             maintainAspectRatio: false,
             plugins: {
+              legend: { display: false }, // Oculta a legenda já que o título do card explica o gráfico
               tooltip: {
                 callbacks: {
-                  label: (context: any) => {
-                    const value = context.raw as number;
-                    return `R$ ${value.toLocaleString('pt-BR')}`;
-                  }
+                  label: (context: any) => ` Valor: R$ ${context.raw.toLocaleString('pt-BR')}`
                 }
               },
               datalabels: {
                 anchor: 'end',
                 align: 'end',
                 formatter: (value: number) => `R$ ${value.toLocaleString('pt-BR')}`,
-                backgroundColor: 'rgba(0,0,0,0.6)',
+                backgroundColor: 'rgba(31, 41, 55, 0.9)',
                 borderRadius: 4,
-                padding: { left: 6, right: 6, top: 2, bottom: 2 },
+                padding: { left: 6, right: 6, top: 4, bottom: 4 },
                 color: 'white',
                 font: { weight: 'bold', size: 10 }
+              }
+            },
+            scales: {
+              x: {
+                display: false, // Oculta o eixo inferior eliminando a redundância com as etiquetas de dados
+                grid: { display: false }
+              },
+              y: {
+                border: { display: false },
+                grid: { display: false }, // Remove linhas de grade residuais
+                ticks: {
+                  color: '#4b5563',
+                  font: { size: 12, weight: 500 }
+                }
               }
             }
           }
@@ -289,7 +323,7 @@ alterarMes(delta: number): void {
       next: () => {
         this.urlNota = '';
         this.carregarDadosMensais();
-        this.carregarEvolucaoMensal(); // Recarrega a evolução histórica caso entre nota nova
+        this.carregarEvolucaoMensal();
       },
       error: (err: any) => console.error('Erro ao importar nota:', err)
     });
