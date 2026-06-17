@@ -348,28 +348,31 @@ namespace FinanceiroApi.Controllers
 
                 using (var stream = pdf.OpenReadStream())
                 {
-                    var resultado = await _importacaoService.ProcessarPdfNota(stream, userId);
+                    // O serviço deve retornar o objeto Lancamento já populado, 
+                    // mas nós vamos garantir que as datas estejam certas agora.
+                    var lancamento = await _importacaoService.ProcessarPdfNota(stream, userId);
 
-                    if (resultado == null)
+                    if (lancamento == null)
                         return BadRequest("Não foi possível extrair dados deste PDF.");
 
-                    // 🎯 ALINHAMENTO DE SEGURANÇA PARA OS CARDS DO ANGULAR:
-                    // Se a nota extraída pertencer a outro mês, forçamos a gravação para a data atual.
-                    // Isso garante o cruzamento matemático positivo na query do "GetResumoMensal".
-                    if (resultado.DataEmissao.Month != DateTime.Now.Month || resultado.DataEmissao.Year != DateTime.Now.Year)
-                    {
-                        resultado.DataEmissao = DateTime.Now;
-                        resultado.Data = DateTime.Now;
-                        _context.Entry(resultado).State = EntityState.Modified;
-                        await _context.SaveChangesAsync();
-                    }
+                    // 🎯 FORÇAR O USO DA DATA DO PDF
+                    // Se o serviço leu "06/06/2026" do PDF, garantimos que 
+                    // o objeto Lançamento use exatamente essa data e não o momento da importação.
+                    lancamento.Data = lancamento.Data.Date;
+                    lancamento.DataEmissao = lancamento.Data.Date;
 
-                    // 🎯 RESOLUÇÃO DE RELACIONAMENTO: Busca de forma limpa o registro recém-criado
-                    // trazendo explicitamente a Categoria Pai e a lista de Itens populada para renderizar sem furos no front.
+                    // O momento da importação continua sendo o agora, para auditoria
+                    lancamento.DataImportacao = DateTime.Now;
+
+                    // Atualiza no banco com a data correta do PDF
+                    _context.Lancamentos.Update(lancamento);
+                    await _context.SaveChangesAsync();
+
+                    // Busca completo com as relações (Categoria/Itens)
                     var lancamentoCompleto = await _context.Lancamentos
                         .Include(l => l.Categoria)
                         .Include(l => l.Itens)
-                        .FirstOrDefaultAsync(l => l.Id == resultado.Id);
+                        .FirstOrDefaultAsync(l => l.Id == lancamento.Id);
 
                     return Ok(lancamentoCompleto);
                 }
@@ -381,7 +384,6 @@ namespace FinanceiroApi.Controllers
             }
         }
 
-        // POST: api/Lancamentos/lancamento-manual
         [HttpPost("lancamento-manual")]
         public async Task<IActionResult> SalvarLancamentoManual([FromBody] Lancamento novoLancamento)
         {
@@ -390,7 +392,21 @@ namespace FinanceiroApi.Controllers
                 string userId = ObterUserId();
                 novoLancamento.UsuarioId = userId;
 
-                novoLancamento.Data = novoLancamento.DataEmissao;
+                // Obtém o horário atual de Brasília (UTC-3)
+                var fusoBrasilia = ObterFusoBrasilia();
+                DateTime agoraBrasilia = TimeZoneInfo.ConvertTime(DateTime.UtcNow, fusoBrasilia);
+
+                // 1. Zera a hora para garantir que o banco grave apenas 00:00:00
+                var dataParaGravar = novoLancamento.Data == DateTime.MinValue
+                                     ? agoraBrasilia.Date
+                                     : novoLancamento.Data.Date;
+
+                novoLancamento.Data = dataParaGravar;
+                novoLancamento.DataEmissao = dataParaGravar;
+
+                // 2. DataImportacao é o único campo que deve manter o horário preciso (em Brasília)
+                novoLancamento.DataImportacao = agoraBrasilia;
+
                 novoLancamento.Tipo = novoLancamento.Tipo.Trim().ToLower();
 
                 if (novoLancamento.CategoriaId <= 0)
@@ -408,6 +424,37 @@ namespace FinanceiroApi.Controllers
                 return StatusCode(500, $"Erro ao salvar lançamento manual: {ex.Message}");
             }
         }
+
+        // Método auxiliar para obter o fuso horário de Brasília de forma cross-platform
+        // Método auxiliar para obter o fuso horário de Brasília de forma cross-platform
+        private TimeZoneInfo ObterFusoBrasilia()
+        {
+            try
+            {
+                // Tenta primeiro o identificador do Linux/Mac
+                return TimeZoneInfo.FindSystemTimeZoneById("America/Sao_Paulo");
+            }
+            catch (TimeZoneNotFoundException)
+            {
+                try
+                {
+                    // Se falhar, tenta o identificador do Windows
+                    return TimeZoneInfo.FindSystemTimeZoneById("E. South America Standard Time");
+                }
+                catch (TimeZoneNotFoundException)
+                {
+                    // Fallback: usa UTC-3 manualmente
+                    return TimeZoneInfo.CreateCustomTimeZone(
+                        "Brasilia Time",
+                        TimeSpan.FromHours(-3),
+                        "Brasília Time",
+                        "Brasília Time"
+                    );
+                }
+            }
+        }
+
+
 
         // DELETE: api/Lancamentos/5
         [HttpDelete("{id:int}")]

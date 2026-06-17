@@ -3,20 +3,20 @@
     <div class="d-flex align-items-center gap-3">
       <h2 class="fw-bold mb-0">📊 Gestão de Categorias</h2>
       
-    <div class="btn-group shadow-sm" role="group">
-  <button type="button" class="btn" 
-          [class.btn-primary]="visaoAtual === 'mensal'" 
-          [class.btn-outline-primary]="visaoAtual !== 'mensal'"
-          (click)="alterarVisao('mensal')">
-    Mensal
-  </button>
-  <button type="button" class="btn" 
-          [class.btn-primary]="visaoAtual === 'anual'" 
-          [class.btn-outline-primary]="visaoAtual !== 'anual'"
-          (click)="alterarVisao('anual')">
-    Anual
-  </button>
-</div>
+      <div class="btn-group shadow-sm" role="group">
+        <button type="button" class="btn" 
+                [class.btn-primary]="visaoAtual === 'mensal'" 
+                [class.btn-outline-primary]="visaoAtual !== 'mensal'"
+                (click)="alterarVisao('mensal')">
+          Mensal
+        </button>
+        <button type="button" class="btn" 
+                [class.btn-primary]="visaoAtual === 'anual'" 
+                [class.btn-outline-primary]="visaoAtual !== 'anual'"
+                (click)="alterarVisao('anual')">
+          Anual
+        </button>
+      </div>
     </div>
 
     <button class="btn btn-primary shadow-sm" (click)="abrirModalNovaCategoria()">
@@ -24,25 +24,38 @@
     </button>
   </div>
 
-  <div class="row">
-    <div class="col-md-4 mb-4" *ngFor="let cat of categorias">
+  <div class="row" cdkDropList (cdkDropListDropped)="drop($event)">
+    <div class="col-md-4 mb-4" *ngFor="let cat of categorias" cdkDrag>
+
+      <div *cdkDragPlaceholder></div>
+
       <div class="card h-100 shadow-sm border-0 border-start border-4" [style.border-color]="cat.corHex">
         <div class="card-body">
           <div class="d-flex justify-content-between align-items-start">
             <h5 class="card-title fw-bold">{{ cat.nome }}</h5>
-            <span class="badge bg-light text-dark border">{{ cat.percentual | number:'1.0-0' }}%</span>
+            <span class="badge bg-light text-dark border">{{ (cat.percentual ?? 0) | number:'1.0-0' }}%</span>
           </div>
           
-          <p class="text-muted small mb-1">
-            {{ visaoAtual === 'mensal' ? 'Gasto Mês' : 'Acumulado Ano' }}: {{ cat.gastoAtual | currency:'BRL' }} / 
-            {{ visaoAtual === 'mensal' ? 'Meta' : 'Teto Ano' }}: {{ cat.metaMensal | currency:'BRL' }}
-          </p>
+          <div class="my-2">
+            <ng-container *ngIf="(cat.gastoAtual ?? 0) > 0; else semLancamentos">
+              <p class="text-muted small mb-1">
+                {{ visaoAtual === 'mensal' ? 'Gasto Mês' : 'Acumulado Ano' }}: {{ (cat.gastoAtual ?? 0) | currency:'BRL' }} / 
+                {{ visaoAtual === 'mensal' ? 'Meta' : 'Teto Ano' }}: {{ (cat.metaMensal ?? 0) | currency:'BRL' }}
+              </p>
+            </ng-container>
+
+            <ng-template #semLancamentos>
+              <p class="text-muted small mb-1 fst-italic">
+                Sem lançamentos este mês
+              </p>
+            </ng-template>
+          </div>
           
           <div class="progress mb-3" style="height: 10px;">
             <div class="progress-bar" 
-                 [ngClass]="getProgressBarClass(cat.percentual)"
+                 [ngClass]="getProgressBarClass(cat.percentual ?? 0)"
                  role="progressbar" 
-                 [style.width]="(cat.percentual > 100 ? 100 : cat.percentual) + '%'">
+                 [style.width.%]="((cat.percentual ?? 0) > 100 ? 100 : (cat.percentual ?? 0))">
             </div>
           </div>
 
@@ -61,56 +74,4 @@
 </div>
 
 <div class="modal fade" id="modalCategoria" tabindex="-1" aria-labelledby="modalCategoriaLabel" aria-hidden="true">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <div class="modal-header bg-primary text-white">
-        <h5 class="modal-title" id="modalCategoriaLabel">
-          {{ formCategoria.get('id')?.value ? 'Editar Categoria' : 'Nova Categoria' }}
-        </h5>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      
-      <form [formGroup]="formCategoria" (ngSubmit)="salvarCategoria()">
-        <div class="modal-body">
-          
-          <div class="mb-3">
-            <label class="form-label fw-bold">Nome da Categoria</label>
-            <input type="text" class="form-control" formControlName="nome" placeholder="Ex: Mercado, Lazer...">
-            <div *ngIf="formCategoria.get('nome')?.invalid && formCategoria.get('nome')?.touched" class="text-danger small">
-              O nome é obrigatório.
-            </div>
-          </div>
-
-          <div class="mb-3">
-            <label class="form-label fw-bold">Meta de Gasto (R$)</label>
-            <input type="number" class="form-control" formControlName="metaMensal">
-            <div *ngIf="formCategoria.get('metaMensal')?.invalid && formCategoria.get('metaMensal')?.touched" class="text-danger small">
-              A meta não pode ser negativa.
-            </div>
-          </div>
-
-          <div class="row">
-            <div class="col-md-6 mb-3">
-              <label class="form-label fw-bold">Cor de Identificação</label>
-              <input type="color" class="form-control form-control-color w-100" formControlName="corHex">
-            </div>
-
-            <div class="col-md-6 mb-3">
-              <label class="form-label fw-bold">Palavras-Chave</label>
-              <input type="text" class="form-control" formControlName="palavrasChave" placeholder="Ex: mercado, compra">
-              <small class="text-muted" style="font-size: 0.7rem;">Separe por vírgula para o PDF</small>
-            </div>
-          </div>
-
-        </div>
-        
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-          <button type="submit" class="btn btn-primary" [disabled]="formCategoria.invalid">
-            <i class="bi bi-save"></i> Salvar Categoria
-          </button>
-        </div>
-      </form>
-    </div>
   </div>
-</div>

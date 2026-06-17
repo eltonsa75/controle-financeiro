@@ -1,6 +1,14 @@
 export interface Categoria {
-  id: number;
+  id: number; // O banco espera number
   nome: string;
+  corHex?: string;  // O '?' torna opcional, aceitando undefined
+  ordem?: number;   // O '?' torna opcional
+  metaMensal?: number;
+  palavrasChave?: string;
+  usuarioId?: string;
+  // Campos calculados que você usa no front:
+  gastoAtual?: number;
+  percentual?: number;
 }
 
 export interface ItemCompra {

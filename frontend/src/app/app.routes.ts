@@ -1,29 +1,34 @@
 import { Routes } from '@angular/router';
 import { LoginComponent } from './components/login/login.component';
-import { ListaLancamentosComponent } from './components/lista-lancamentos/lista-lancamentos.component';
-import { DashboardComponent } from './pages/dashboard/dashboard.component';
-import { LancamentosComponent } from './pages/lancamentos/lancamentos.component';
-import { CategoriasComponent } from './pages/categorias/categorias.component';
-import { ComprasComponent } from './pages/compras/compras.component';
-import { EstoqueComponent } from './pages/estoque/estoque.component';
+import { authGuard } from './guards/auth.guard'; // Importação do Guard
+import { ForgotPasswordComponent } from './components/forgot-password/forgot-password.component';
 
 export const routes: Routes = [
-  // 1. Rota inicial e Login
-  { path: '', redirectTo: '/login', pathMatch: 'full' },
+  // 1. ROTAS DE AUTENTICAÇÃO (Públicas)
   { path: 'login', component: LoginComponent },
+  { path: 'forgot-password', component: ForgotPasswordComponent },
+  { path: '', redirectTo: '/login', pathMatch: 'full' }, // Rota padrão
+  { 
+    path: 'cadastro', 
+    loadComponent: () => import('./components/cadastro/cadastro.component').then(m => m.CadastroComponent) 
+  },
 
-  // 2. Sua tela principal pós-login (onde está o importador de PDF)
-  { path: 'compras', component: ComprasComponent },
-
-  // 3. Outras rotas do sistema
-  { path: 'dashboard', component: DashboardComponent },
-  { path: 'lista', component: ListaLancamentosComponent },
-  { path: 'lancamentos', component: LancamentosComponent },
-  { path: 'categorias', component: CategoriasComponent },
-  { path: 'estoque', component: EstoqueComponent }, 
+  // 2. ROTAS DO SISTEMA (Protegidas pelo AuthGuard)
+  {
+    path: '',
+    canActivate: [authGuard], // Protege todas as rotas filhas abaixo
+    children: [
+      { path: 'dashboard', loadComponent: () => import('./pages/dashboard/dashboard.component').then(m => m.DashboardComponent) },
+      { path: 'compras', loadComponent: () => import('./pages/compras/compras.component').then(m => m.ComprasComponent) },
+      { path: 'lista', loadComponent: () => import('./components/lista-lancamentos/lista-lancamentos.component').then(m => m.ListaLancamentosComponent) },
+      { path: 'lancamentos', loadComponent: () => import('./pages/lancamentos/lancamentos.component').then(m => m.LancamentosComponent) },
+      { path: 'categorias', loadComponent: () => import('./pages/categorias/categorias.component').then(m => m.CategoriasComponent) },
+      { path: 'estoque', loadComponent: () => import('./pages/estoque/estoque.component').then(m => m.EstoqueComponent) },
+      { path: 'forgot-password', component: ForgotPasswordComponent },
+    ]
+  },
   
-  { path: '', redirectTo: '/categorias', pathMatch: 'full' }, // ou sua rota padrão
-
-  // 4. Rota de fuga: se digitar algo errado, volta para o login (ou dashboard)
+  // 3. REDIRECIONAMENTOS
+  { path: '', redirectTo: '/login', pathMatch: 'full' },
   { path: '**', redirectTo: '/login' }
 ];

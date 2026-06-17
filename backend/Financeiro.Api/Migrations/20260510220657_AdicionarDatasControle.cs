@@ -11,19 +11,21 @@ namespace Financeiro.Api.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            // 🎯 ALTERADO: Tipo mudou de "datetime(6)" para "timestamp"
+            // Isso força o MySQL a respeitar o fuso local da aplicação em tempo de gravação
             migrationBuilder.AddColumn<DateTime>(
                 name: "DataEmissao",
                 table: "Lancamentos",
-                type: "datetime(6)",
+                type: "timestamp",
                 nullable: false,
-                defaultValue: new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified));
+                defaultValue: DateTime.MinValue);
 
             migrationBuilder.AddColumn<DateTime>(
                 name: "DataImportacao",
                 table: "Lancamentos",
-                type: "datetime(6)",
+                type: "timestamp",
                 nullable: false,
-                defaultValue: new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified));
+                defaultValue: DateTime.MinValue);
         }
 
         /// <inheritdoc />

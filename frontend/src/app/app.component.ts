@@ -1,8 +1,8 @@
 import { Component } from '@angular/core';
-import { RouterOutlet, Router, NavigationEnd } from '@angular/router'; // Adicionado Router e NavigationEnd
+import { RouterOutlet, Router, NavigationEnd } from '@angular/router';
 import { SidebarComponent } from './components/sidebar/sidebar.component';
 import { CommonModule } from '@angular/common';
-import { filter } from 'rxjs/operators'; // Adicionado filter para interceptar as rotas
+import { filter } from 'rxjs/operators';
 
 @Component({
   selector: 'app-root',
@@ -12,16 +12,25 @@ import { filter } from 'rxjs/operators'; // Adicionado filter para interceptar a
   styleUrl: './app.component.css'
 })
 export class AppComponent {
-  title = 'financeiro-app';
-  mostrarSidebar = true; // Variável que o HTML vai ler para ocultar/exibir a barra
+  mostrarSidebar = false;
 
   constructor(private router: Router) {
-    // Escuta os eventos de navegação do Angular
+    // 1. Verificação imediata ao iniciar o app
+    this.verificarRota(this.router.url);
+
+    // 2. Escuta as mudanças futuras
     this.router.events.pipe(
       filter(event => event instanceof NavigationEnd)
     ).subscribe((event: any) => {
-      // Se a URL atual tiver '/login', o 'includes' dá true, e o '!' inverte para false (esconde)
-      this.mostrarSidebar = !event.url.includes('/login');
+      this.verificarRota(event.urlAfterRedirects);
     });
+  }
+
+  private verificarRota(url: string) {
+    // Adicionamos '/forgot-password' na lista para esconder a sidebar também nela
+    const rotasSemSidebar = ['/login', '/cadastro', '/forgot-password'];
+    
+    // A sidebar só aparece se a URL atual não estiver na lista de rotas ignoradas
+    this.mostrarSidebar = !rotasSemSidebar.some(rota => url.includes(rota));
   }
 }

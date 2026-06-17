@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Observable, from, switchMap } from 'rxjs';
 import { environment } from '../../environments/environment';
 import { AuthService } from './auth.service';
@@ -95,4 +95,23 @@ getGastosCategoria(): Observable<any[]> {
       )
     );
   }
+
+  // --- ADICIONE ESTE MÉTODO AO SEU LancamentoService ---
+
+listarPaginado(page: number, pageSize: number): Observable<{ items: Lancamento[], total: number }> {
+  return this.getHeaders().pipe(
+    switchMap(headers => {
+      // Define os parâmetros de paginação
+      const params = new HttpParams()
+        .set('page', page.toString())
+        .set('pageSize', pageSize.toString());
+
+      // Faz a chamada passando os parâmetros e os headers
+      return this.http.get<{ items: Lancamento[], total: number }>(this.apiUrl, { 
+        headers, 
+        params 
+      });
+    })
+  );
+}
 }

@@ -193,6 +193,17 @@
   text-decoration: underline;
 }
 
+.create-account a {
+  text-decoration: none;
+  color: var(--primary-color); /* ou a cor que você estiver usando */
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.create-account a:hover {
+  text-decoration: underline;
+}
+
 /* Responsividade Básica (para telas menores) */
 @media (max-width: 950px) {
   .login-box {

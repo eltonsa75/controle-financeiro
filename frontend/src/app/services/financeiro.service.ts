@@ -3,6 +3,15 @@ import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { catchError, Observable, throwError } from 'rxjs';
 import { Lancamento } from '../models/financeiro.model';
 import { GastosCategoria } from '../models/gastos-categoria.model';
+// No topo do arquivo financeiro.service.ts, adicione:
+import { Categoria } from '../models/financeiro.model'; // Ajuste o caminho conforme necessário
+
+export interface CategoriaStatus {
+  id: number; // Mude de 'number | undefined' para apenas 'number'
+  nome: string;
+  corHex: string;
+  ordem?: number; // O '?' aqui torna o campo opcional, não quebra nada existente
+}
 
 export interface ItemCaro {
   descricao: string;
@@ -53,6 +62,7 @@ export interface GastosAnuaisCategoria {
 export class FinanceiroService {
   private apiUrl = 'http://localhost:5037/api/Lancamentos';
   private apiUrl2 = 'http://localhost:5037/api/Financeiro';
+  
 
   constructor(private http: HttpClient) { }
 
@@ -177,5 +187,16 @@ export class FinanceiroService {
   excluirCategoria(id: number): Observable<any> {
     const urlCategorias = this.apiUrl.replace('/Lancamentos', '/Categorias');
     return this.http.delete<any>(`${urlCategorias}/${id}`);
+  }
+
+  // 🎯 NOVO MÉTODO PARA PERSISTIR A ORDEM DO DRAG AND DROP
+  atualizarOrdemCategorias(categorias: Categoria[]): Observable<any> {
+    const urlCategorias = this.apiUrl.replace('/Lancamentos', '/Categorias');
+    return this.http.put(`${urlCategorias}/ordenar`, categorias).pipe(
+      catchError(err => {
+        console.error('Erro ao atualizar ordem das categorias:', err);
+        return throwError(() => err);
+      })
+    );
   }
 }

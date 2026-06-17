@@ -9,6 +9,7 @@
 /* O PULO DO GATO: Força a tag do Angular a se comportar como um bloco real */
 app-sidebar {
   display: block;
+  transition: none;
   height: 100vh;
   flex-shrink: 0; /* Impede que o dashboard "esmague" a largura da sidebar */
 }
@@ -19,3 +20,4 @@ app-sidebar {
   overflow-y: auto; /* Se o dashboard for grande, só ele vai ter barra de rolagem */
   padding: 0;
 }
+

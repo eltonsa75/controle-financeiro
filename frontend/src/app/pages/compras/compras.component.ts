@@ -16,7 +16,6 @@ interface ItemCompraLocal {
   categoria: string;
 }
 
-// Atualizado para começar com 0 para ativar o placeholder do HTML
 const ESTADO_INICIAL_RAPIDO = { 
   descricao: '', 
   valor: null as any, 
@@ -45,9 +44,7 @@ export class ComprasComponent implements OnInit {
   dataCompraPlanejada: string = ''; 
   tentouSalvar: boolean = false;
 
-  // 1. ADICIONADO: Propriedade para alimentar o combo-box do HTML
   categorias: any[] = []; 
-
   novoLancamento = { ...ESTADO_INICIAL_RAPIDO };
 
   sugestoesLocais: string[] = ['Atacadão', 'Carrefour', 'Pão de Açúcar', 'Posto Shell', 'Farmácia Preço Popular'];
@@ -63,20 +60,29 @@ export class ComprasComponent implements OnInit {
   statusComparativo: string = 'Aguardando itens...';
 
   ngOnInit(): void {
-    const hoje = new Date().toISOString().split('T')[0];
-    this.novoLancamento.dataEmissao = hoje;
-    this.dataCompraPlanejada = hoje;
+    // 🎯 CORRIGIDO: Captura o dia, mês e ano locais do computador, evitando conversões UTC truncadas
+    const hojeLocal = this.obterDataLocalString();
+    
+    this.novoLancamento.dataEmissao = hojeLocal;
+    this.dataCompraPlanejada = hojeLocal;
     this.inicializarLinhas();
     
-    // 2. ADICIONADO: Executa a carga das categorias ao abrir a tela
     this.carregarCategorias();
   }
 
+  // 🎯 MÉTODO AUXILIAR: Gera a string "AAAA-MM-DD" com segurança baseada no relógio físico de Brasília
+  private obterDataLocalString(): string {
+    const hoje = new Date();
+    const ano = hoje.getFullYear();
+    const mes = String(hoje.getMonth() + 1).padStart(2, '0');
+    const dia = String(hoje.getDate()).padStart(2, '0');
+    return `${ano}-${mes}-${dia}`;
+  }
+
   carregarCategorias(): void {
-    // 🎯 Trocando o mock pela chamada real da API através do seu Service
     this.financeiroService.listarCategorias().subscribe({
       next: (dados) => {
-        this.categorias = dados; // Aqui chegam as categorias reais com os IDs certos do MySQL
+        this.categorias = dados;
       },
       error: (err) => {
         console.error('Erro ao buscar categorias do banco:', err);
@@ -98,12 +104,14 @@ export class ComprasComponent implements OnInit {
 
     const valorAbsoluto = Math.abs(Number(this.novoLancamento.valor));
     
-    // 3. AJUSTADO: Agora 'categoriaId' pega dinamicamente o valor do select da tela
+    // Convertendo para String ISO contendo fuso local ou adicionando o horário de meio-dia para evitar retrocesso de fuso
+    const dataEmissaoFormatada = new Date(this.novoLancamento.dataEmissao + 'T12:00:00').toISOString();
+
     const dadosParaEnviar: Lancamento = { 
       descricao: this.novoLancamento.descricao,
       valor: this.novoLancamento.tipo === 'Despesa' ? -valorAbsoluto : valorAbsoluto,
       data: new Date().toISOString(),
-      dataEmissao: new Date(this.novoLancamento.dataEmissao).toISOString(),
+      dataEmissao: dataEmissaoFormatada,
       dataImportacao: new Date().toISOString(),
       tipo: this.novoLancamento.tipo,
       categoriaId: Number(this.novoLancamento.categoriaId)
@@ -113,7 +121,8 @@ export class ComprasComponent implements OnInit {
 
     this.financeiroService.salvarLancamento(dadosParaEnviar).subscribe({
       next: () => {
-        this.novoLancamento = { ...ESTADO_INICIAL_RAPIDO, dataEmissao: new Date().toISOString().split('T')[0] };
+        // 🎯 CORRIGIDO: O reset do formulário agora ganha a data local limpa, ao invés do toISOString() antigo
+        this.novoLancamento = { ...ESTADO_INICIAL_RAPIDO, dataEmissao: this.obterDataLocalString() };
         Swal.fire({ icon: 'success', title: 'Lançado!', timer: 1500, showConfirmButton: false });
         this.router.navigate(['/dashboard']);
       },
@@ -131,7 +140,7 @@ export class ComprasComponent implements OnInit {
   }
 
   criarLinhaVazia(): ItemCompraLocal {
-    return { descricao: '', quantidade: 1, unidade: 'un', preco: null, comprado: false, categoria: 'Mercearia' };
+    return { descricao: '', quantidade: 1, unidade: 'un', preco: null, comprado: false, category: 'Mercearia' } as any;
   }
 
   adicionarLinha(): void {
@@ -150,9 +159,7 @@ export class ComprasComponent implements OnInit {
     this.calcularComparativo();
   }
 
-  calcularTotalManual(valor: any): void {
-    // Método auxiliar caso necessário para formatações futuras
-  }
+  calcularTotalManual(valor: any): void {}
 
   calcularComparativo(): void {
     this.diferencaValor = this.total - this.compraAnterior.valor;
@@ -199,14 +206,17 @@ export class ComprasComponent implements OnInit {
 
     const itensValidos = this.itens.filter(i => i.descricao && i.descricao.trim() !== '');
     
+    // 🎯 TRATAMENTO ADICIONAL: Aplica segurança ao salvar a lista de compras manual do supermercado também
+    const dataCompraFormatada = new Date(this.dataCompraPlanejada + 'T12:00:00').toISOString();
+
     const lancamentoFinal: Lancamento = {
       descricao: this.descricaoCompra,
       valor: -Math.abs(this.total),
       data: new Date().toISOString(),
-      dataEmissao: new Date(this.dataCompraPlanejada).toISOString(),
+      dataEmissao: dataCompraFormatada,
       dataImportacao: new Date().toISOString(),
       tipo: 'Despesa',
-      categoriaId: 1, // ID 1 fixo para "Mercado", pois este bloco é exclusivo para a lista de supermercado
+      categoriaId: 1, 
       itens: itensValidos.map(item => ({
         descricao: item.descricao,
         preco: item.preco || 0,

@@ -1,0 +1,63 @@
+<div class="main-container">
+  <div class="login-box">
+    
+    <div class="purple-panel">
+      <div class="welcome-text">
+        <h1>Crie sua conta</h1>
+        <p>Junte-se a nós para organizar seu futuro financeiro.</p>
+      </div>
+    </div>
+
+    <div class="form-panel">
+      <h2>Cadastro</h2>
+      
+      <form [formGroup]="cadastroForm" (ngSubmit)="cadastrar()" class="custom-form">
+        
+        <div class="field-wrapper">
+   
+          <div class="input-group" [class.error-border]="cadastroForm.get('nome')?.touched && cadastroForm.get('nome')?.invalid">
+            <span class="input-group-text"><i class="bi bi-person-fill"></i></span>
+            <input type="text" formControlName="nome" placeholder="Nome Completo" class="form-control"
+                   [class.is-invalid]="cadastroForm.get('nome')?.touched && cadastroForm.get('nome')?.invalid">
+          </div>
+          <div class="error-msg" *ngIf="cadastroForm.get('nome')?.touched && cadastroForm.get('nome')?.invalid">
+            Por favor, informe seu nome completo.
+          </div>
+        </div>
+
+        <div class="field-wrapper">
+          
+          <div class="input-group" [class.error-border]="cadastroForm.get('email')?.touched && cadastroForm.get('email')?.invalid">
+            <span class="input-group-text"><i class="bi bi-envelope-fill"></i></span>
+            <input type="email" formControlName="email" placeholder="E-mail" class="form-control"
+                   [class.is-invalid]="cadastroForm.get('email')?.touched && cadastroForm.get('email')?.invalid">
+          </div>
+          <div class="error-msg" *ngIf="cadastroForm.get('email')?.touched && cadastroForm.get('email')?.invalid">
+            Por favor, informe um e-mail válido.
+          </div>
+        </div>
+
+        <div class="field-wrapper">
+         
+          <div class="input-group" [class.error-border]="cadastroForm.get('senha')?.touched && cadastroForm.get('senha')?.invalid">
+            <span class="input-group-text"><i class="bi bi-lock-fill"></i></span>
+            <input type="password" formControlName="senha" placeholder="Senha" class="form-control"
+                   [class.is-invalid]="cadastroForm.get('senha')?.touched && cadastroForm.get('senha')?.invalid">
+          </div>
+          <div class="error-msg" *ngIf="cadastroForm.get('senha')?.touched && cadastroForm.get('senha')?.invalid">
+            A senha deve ter pelo menos 6 caracteres.
+          </div>
+        </div>
+
+        <button type="submit" class="btn-primary" [disabled]="cadastroForm.invalid">
+          Finalizar Cadastro
+        </button>
+
+        <div class="text-center mt-3">
+          <span>Já tem conta? </span> <a routerLink="/login">Faça login</a>
+        </div>
+
+      </form>
+    </div>
+  </div>
+</div>

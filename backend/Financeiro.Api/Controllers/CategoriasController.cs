@@ -56,18 +56,19 @@ namespace FinanceiroApi.Controllers
                     .ToListAsync();
 
                 var resultado = categorias.Select(c => {
-                    // 🎯 TESTE: Removendo o filtro de mês/ano para ver se o gasto aparece
+                    // 🎯 AQUI ESTÁ A CORREÇÃO: Adicionamos o filtro de data na query
                     var query = _context.Lancamentos
-                        .Where(l => l.CategoriaId == c.Id);
+                        .Where(l => l.CategoriaId == c.Id
+                                 && l.Data.Month == mes
+                                 && l.Data.Year == ano); // FILTRO DE DATA APLICADO
 
-                    // O .Sum agora vai somar TODA a história dessa categoria
                     var gastos = query.Sum(l => (decimal?)Math.Abs(l.Valor)) ?? 0;
 
                     return new
                     {
                         c.Id,
                         c.Nome,
-                        MetaMensal = c.MetaMensal,
+                        c.MetaMensal,
                         c.CorHex,
                         c.PalavrasChave,
                         GastoAtual = gastos,
@@ -79,7 +80,6 @@ namespace FinanceiroApi.Controllers
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Erro no Status: {ex.Message}");
                 return StatusCode(500, ex.Message);
             }
         }

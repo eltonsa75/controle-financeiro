@@ -24,10 +24,17 @@ namespace FinanceiroApi.Services
             public string Descricao { get; set; }
             public double Quantidade { get; set; }
             public decimal Preco { get; set; }
-            public string Categoria { get; set; } // Recebe o retorno estruturado do motor Python
+            public string Categoria { get; set; }
         }
 
-        public class PythonRespostaDto { public string Estabelecimento { get; set; } public string TextoBruto { get; set; } public List<PythonItemDto> Itens { get; set; } }
+        public class PythonRespostaDto
+        {
+            public string System_Estabelecimento { get; set; }
+            public string Estabelecimento { get; set; }
+            public string DataEmissao { get; set; }
+            public string TextoBruto { get; set; }
+            public List<PythonItemDto> Itens { get; set; }
+        }
 
         // ==================== MÉTODO PRINCIPAL ====================
 
@@ -37,18 +44,17 @@ namespace FinanceiroApi.Services
             var lancamento = CriarLancamentoBase(userId);
             string textoBrutoDoPdf = "";
             PythonRespostaDto dadosMapeados = null;
+            bool dataCarregadaPeloPython = false;
 
-            // 1. Envia o arquivo Stream recebido do Angular diretamente para o Python
             using (var client = new HttpClient())
             using (var content = new MultipartFormDataContent())
             {
-                arquivoStream.Position = 0; // Reseta o ponteiro do arquivo
+                arquivoStream.Position = 0;
                 var streamContent = new StreamContent(arquivoStream);
                 content.Add(streamContent, "file", "nota_upload.pdf");
 
                 try
                 {
-                    // Faz a chamada HTTP POST para a API Python FastAPI
                     var respostaPython = await client.PostAsync("http://localhost:8000/extrair-nota", content);
 
                     if (!respostaPython.IsSuccessStatusCode)
@@ -56,7 +62,6 @@ namespace FinanceiroApi.Services
                         throw new Exception($"O microsserviço Python retornou erro: {respostaPython.StatusCode}");
                     }
 
-                    // Lê o JSON estruturado que o Python gerou usando o 'pdfplumber' e a categorização local
                     dadosMapeados = await respostaPython.Content.ReadFromJsonAsync<PythonRespostaDto>();
 
                     if (dadosMapeados != null)
@@ -64,7 +69,15 @@ namespace FinanceiroApi.Services
                         lancamento.Descricao = dadosMapeados.Estabelecimento;
                         textoBrutoDoPdf = dadosMapeados.TextoBruto;
 
-                        // Alimenta a entidade de lançamento do C# com os itens já limpos pelo Python
+                        if (!string.IsNullOrEmpty(dadosMapeados.DataEmissao) && DateTime.TryParse(dadosMapeados.DataEmissao, out DateTime dataPython))
+                        {
+                            // 🎯 AJUSTADO: Salva estritamente a parte da data local limpa
+                            lancamento.DataEmissao = dataPython.Date;
+                            lancamento.Data = dataPython.Date;
+                            dataCarregadaPeloPython = true;
+                            Console.WriteLine($"[.NET 🎯] Data absorvida com sucesso do motor Python: {dataPython:dd/MM/yyyy}");
+                        }
+
                         lancamento.Itens = dadosMapeados.Itens.Select(i => new ItemLancamento
                         {
                             Descricao = i.Descricao,
@@ -81,21 +94,18 @@ namespace FinanceiroApi.Services
                 }
             }
 
-            // 2. Extrai os metadados usando o texto bruto unificado retornado do Python
-            ExtrairDataDoPdf(textoBrutoDoPdf, lancamento);
+            if (!dataCarregadaPeloPython)
+            {
+                ExtrairDataDoPdf(textoBrutoDoPdf, lancamento);
+            }
 
-            // 3. Busca categorias do banco para cruzamento inteligente por palavras-chave
-            var categoriasDoUsuario = await _context.Categorias.Where(c => c.UsuarioId == userId).ToListAsync();
-            lancamento.CategoriaId = DeterminarCategoriaInteligente(lancamento, categoriasDoUsuario, textoBrutoDoPdf);
+            var categoriesDoUsuario = await _context.Categorias.Where(c => c.UsuarioId == userId).ToListAsync();
+            lancamento.CategoriaId = DeterminarCategoriaInteligente(lancamento, categoriesDoUsuario, textoBrutoDoPdf);
 
-            // 4. Vincula as subcategorias em cada item baseando-se no mapeamento do Python
             foreach (var item in lancamento.Itens)
             {
-                // Puxa do retorno do Python o item correspondente para extrair a categoria definida
                 var categoriaVindaDoPython = dadosMapeados?.Itens?.FirstOrDefault(i => i.Descricao == item.Descricao)?.Categoria;
 
-                // 🎯 ATRIBUIÇÃO DIRETA NA STRING: Se o Python categorizou com sucesso, salvamos no campo. 
-                // Se veio "Outros" ou vazio, roda o método estático local como segurança.
                 item.Categoria = !string.IsNullOrEmpty(categoriaVindaDoPython) && categoriaVindaDoPython != "Outros"
                     ? categoriaVindaDoPython
                     : ClassificarAutomaticamente(item.Descricao);
@@ -108,22 +118,32 @@ namespace FinanceiroApi.Services
                 : 0;
 
             decimal valorPago = ExtrairValorPago(textoBrutoDoPdf, somaItens);
-
             lancamento.Valor = -Math.Abs(valorPago > 0 ? valorPago : somaItens);
-            lancamento.DataImportacao = DateTime.Now;
+
+            // 🎯 CORRIGIDO: Identifica o ID do fuso horário independente se rodar em Windows ou Linux/Docker
+            TimeZoneInfo fusoBrasilia;
+            try
+            {
+                fusoBrasilia = TimeZoneInfo.FindSystemTimeZoneById("E. South America Standard Time"); // Windows
+            }
+            catch (TimeZoneNotFoundException)
+            {
+                fusoBrasilia = TimeZoneInfo.FindSystemTimeZoneById("America/Sao_Paulo"); // Linux / Mac
+            }
+
+            // 🎯 CORRIGIDO: Pega o UTC puro e converte matematicamente para o horário oficial de Brasília
+            lancamento.DataImportacao = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, fusoBrasilia);
 
             Console.WriteLine($"[.NET LOG] Total de Itens: {lancamento.Itens.Count} | Valor Calculado: R$ {Math.Abs(lancamento.Valor):F2}");
 
-            // 5. Salva os registros de forma rígida no MySQL
+            // 5. Salva os registros no MySQL
             _context.Lancamentos.Add(lancamento);
             await _context.SaveChangesAsync();
 
-            // 🎯 FORÇA CARREGAMENTO EM MEMÓRIA: Garante que os objetos internos fiquem totalmente sincronizados antes de voltar para o front
             await _context.Entry(lancamento).Reference(l => l.Categoria).LoadAsync();
             await _context.Entry(lancamento).Collection(l => l.Itens).LoadAsync();
 
-            // 6. Alimenta de forma incremental as tabelas do Inventário (Estoque) utilizando as novas categorias
-            await AtualizarEstoquePorNota(lancamento, userId, categoriasDoUsuario);
+            await AtualizarEstoquePorNota(lancamento, userId, categoriesDoUsuario);
 
             Console.WriteLine("==== [.NET] FLUXO DE COMPILAÇÃO E SALVAMENTO CONCLUÍDO ====\n");
             return lancamento;
@@ -133,7 +153,6 @@ namespace FinanceiroApi.Services
 
         private int DeterminarCategoriaInteligente(Lancamento lancamento, List<Categoria> categorias, string textoBruto)
         {
-           
             string textoParaMapear = (lancamento.Descricao + " " + textoBruto).ToLower();
 
             foreach (var cat in categorias)
@@ -146,13 +165,12 @@ namespace FinanceiroApi.Services
                         string palavraChaveLimpa = p.Trim().ToLower();
                         if (!string.IsNullOrEmpty(palavraChaveLimpa) && textoParaMapear.Contains(palavraChaveLimpa))
                         {
-                            return cat.Id; 
+                            return cat.Id;
                         }
                     }
                 }
             }
 
-           
             string categoriaNotaSub = ClassificarNotaPorItens(lancamento.Itens.ToList());
 
             string nomeAlvo = categoriaNotaSub.ToLower().Trim() switch
@@ -177,13 +195,10 @@ namespace FinanceiroApi.Services
                 _ => "geral"
             };
 
-            // Busca no banco a categoria que bate com o nomeAlvo do switch
-            var categoriaFinal = categorias.FirstOrDefault(c =>
-                c.Nome.ToLower().Trim() == nomeAlvo);
+            var categoriaFinal = categorias.FirstOrDefault(c => c.Nome.ToLower().Trim() == nomeAlvo);
 
             if (categoriaFinal != null && categoriaFinal.Id != 1) return categoriaFinal.Id;
 
-            // Fallback de segurança: joga para Mercearia ou Geral
             var fallbackDespesa = categorias.FirstOrDefault(c => c.Nome.Contains("Mercearia") || c.Nome.Contains("Geral"))
                                   ?? categorias.FirstOrDefault(c => c.Id != 1);
 
@@ -200,13 +215,7 @@ namespace FinanceiroApi.Services
                 { "Laticínios e Frios", new[] { "LEITE", "LEITE L.VIDA", "NINHO", "MUSSARELA", "QUEIJO", "DANONE", "IOG", "IOGURTE", "RICOTA", "APRESUNTADO", "AURORA", "BATAV", "FERM", "ELEGE" } },
                 { "Mercearia", new[] { "FEIJAO", "FEIJÃO", "ARROZ", "ARROZ TIO JOAO", "TIO JOAO", "MAC.D.BENTA", "D.BENTA", "OLEO", "ÓLEO", "SOYA", "AZEITE", "ANDOR", "ACUCAR", "CAFE", "3COR", "CORACOES", "CAPS", "MAC.", "ATUM", "MOLHO", "EKMA", "KISABOR", "SAC ASSA", "SACO", "MAND", "RAV", "MEZZ", "QJOS", "MIX SA", "GRANO", "KICALDO", "CAMIL" } },
                 { "Limpeza", new[] { "OMO", "VANISH", "LIMP.PERFUMADO", "DETERG", "AMAC ROUPA AMACITEL", "AMACITEL", "DESINF.SANOL", "SANOL", "SAC INST.BIO", "60X70", "INST.BIO", "ESPONJA", "SCOTCH", "BRITE", "PAPEL", "TOALHA", "BULNEZ", "GLADE", "DESODORIZADOR" } },
-                {
-    "Higiene e Saúde", new[] {
-        "SAB.", "DOVE", "REXONA", "DESOD.", "COLGATE", "CREME DENT", "SHAMP",
-        "KARITE", "AERO", "BWELL", "MAG", "500MG", "CR.D.", "REMEDIO", "REMEDIOS",
-        "REM.", "MEDICAMENTO", "COMPRIMIDO", "COMP.", "DIPIRONA", "DORFLEX", "FARMACIA"
-    }
-},
+                { "Higiene e Saúde", new[] { "SAB.", "DOVE", "REXONA", "DESOD.", "COLGATE", "CREME DENT", "SHAMP", "KARITE", "AERO", "BWELL", "MAG", "500MG", "CR.D.", "REMEDIO", "REMEDIOS", "REM.", "MEDICAMENTO", "COMPRIMIDO", "COMP.", "DIPIRONA", "DORFLEX", "FARMACIA" } },
                 { "Hortifruti", new[] { "BATATA", "ALHO", "PEPINO", "ABOBORA", "CEBOLA", "TOMATE", "BANANA", "MACA" } },
                 { "Snacks e Doces", new[] { "BISCOITO", "CLUB SOCIAL", "BOMBOM", "LACTA", "SALG.", "ELMA", "AMEND", "DOCE", "CRACKER", "RANCHEIRO" } },
                 { "Padaria", new[] { "PAO", "PÃO", "PULLMAN", "BISNAGUITO", "KIM", "PAO FORMA KIM", "PAO QJO MASSA", "TORRADA", "MASSA" } },
@@ -217,7 +226,7 @@ namespace FinanceiroApi.Services
 
             foreach (var categoria in mapeamento)
             {
-                if (categoria.Value.Any(keyword => nome.Contains(keyword))) return categoria.Key;
+                if (categoria.Value.Any(keyword => nome.Contains(keyword))) return "Açougue" == categoria.Key ? "Açougue" : categoria.Key;
             }
             return "Outros";
         }
@@ -252,7 +261,7 @@ namespace FinanceiroApi.Services
                         "Limpeza" => "Limpeza",
                         "Higiene e Saúde" => "Higiene",
                         "Hortifruti" => "Hortifruti",
-                        "Acougue" => "Açougue",
+                        "Acougue" or "Açougue" => "Açougue",
                         _ => "Geral"
                     };
 
@@ -301,7 +310,8 @@ namespace FinanceiroApi.Services
                     dataEncontrada = true;
             }
 
-            lancamento.DataEmissao = dataEncontrada ? dataEmissao : DateTime.Now;
+            // 🎯 AJUSTADO: Salva apenas a data limpa sem frações de hora
+            lancamento.DataEmissao = dataEncontrada ? dataEmissao.Date : DateTime.Today;
             lancamento.Data = lancamento.DataEmissao;
         }
 

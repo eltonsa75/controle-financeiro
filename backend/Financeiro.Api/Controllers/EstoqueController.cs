@@ -1,4 +1,5 @@
-﻿using FinanceiroApi.Data;
+﻿using Financeiro.Api.Models.DTO;
+using FinanceiroApi.Data;
 using FinanceiroApi.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -37,21 +38,25 @@ namespace FinanceiroApi.Controllers
 
         // POST: api/estoque
         [HttpPost]
-        public async Task<IActionResult> PostEstoque([FromBody] Estoque model)
+        public async Task<IActionResult> PostEstoque([FromBody] EstoqueDto dto)
         {
-            var usuarioId = ObtemUsuarioId();
-            model.UsuarioId = usuarioId;
-            model.Id = 0; // Garante a inserção de um novo registro
-
-            ModelState.Remove(nameof(model.UsuarioId));
-            ModelState.Remove(nameof(model.Categoria));
-
             if (!ModelState.IsValid) return BadRequest(ModelState);
 
-            _context.Estoques.Add(model);
+            var estoque = new Estoque
+            {
+                Nome = dto.Nome,
+                QuantidadeAtual = dto.QuantidadeAtual,
+                QuantidadeMinima = dto.QuantidadeMinima,
+                UnidadeMedida = dto.UnidadeMedida,
+                CategoriaId = dto.CategoriaId,
+                UsuarioId = ObtemUsuarioId()
+            };
+
+            _context.Estoques.Add(estoque);
             await _context.SaveChangesAsync();
 
-            return Ok(model);
+            // Retorna 201 Created com a localização do novo item
+            return CreatedAtAction(nameof(GetEstoque), new { id = estoque.Id }, estoque);
         }
 
         // PUT: api/estoque/5

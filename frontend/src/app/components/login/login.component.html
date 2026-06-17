@@ -19,7 +19,7 @@
     </div>
 
     <div class="form-panel">
-      <h2>Sign In</h2>
+      <h2>Login</h2>
       
       <form (ngSubmit)="onSubmit()">
         
@@ -44,18 +44,20 @@
         <div class="form-options">
           <div class="remember-me">
             <input type="checkbox" id="remember" name="rememberMe" [(ngModel)]="rememberMe">
-            <label for="remember">Remember me</label>
+            <label for="remember">Lembrar-me</label>
           </div>
-          <a href="#" class="forgot-password">Forgot password?</a>
+          <a routerLink="/forgot-password" class="forgot-password-link">
+  Esqueceu a senha?
+</a>
         </div>
 
-        <button type="submit" class="btn-sign-in">Sign In</button>
+        <button type="submit" class="btn-sign-in">Fazer login</button>
         
         <p *ngIf="erro" class="error-msg">{{ erro }}</p>
 
         <div class="create-account">
-          <span>New here?</span>
-          <a href="#">Create an Account</a>
+          <span>Novo por aqui?</span>         
+          <a routerLink="/cadastro">Crie uma conta</a>
         </div>
       </form>
     </div>

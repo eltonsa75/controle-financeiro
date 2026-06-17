@@ -7,49 +7,51 @@
       </small>
     </div>
 
-   <div class="card p-3 border-0 shadow-sm bg-white">
-      <div class="row g-2 align-items-center">
-        
-        <div class="col-md-2">
-          <div class="input-group">
-            <span class="input-group-text bg-white border-end-0"><i class="bi bi-pencil-square text-primary"></i></span>
-            <input type="text" class="form-control border-start-0" placeholder="Descrição (ex: Posto)" [(ngModel)]="novoLancamento.descricao">
-          </div>
-        </div>
-
-        <div class="col-md-2">
-          <div class="input-group">
-            <span class="input-group-text bg-white border-end-0">R$</span>
-            <input type="number" class="form-control border-start-0" placeholder="0,00" [(ngModel)]="novoLancamento.valor">
-          </div>
-        </div>
-
-        <div class="col-md-2">
-          <select class="form-select" [(ngModel)]="novoLancamento.categoriaId">
-            <option [value]="0" disabled selected>Selecione a Categoria</option>
-            <option *ngFor="let cat of categorias" [value]="cat.id">{{ cat.nome }}</option>
-          </select>
-        </div>
-
-        <div class="col-md-2">
-          <input type="date" class="form-control" [(ngModel)]="novoLancamento.dataEmissao">
-        </div>
-
-        <div class="col-md-2">
-          <select class="form-select" [(ngModel)]="novoLancamento.tipo">
-            <option value="Despesa">Despesa (Saída)</option>
-            <option value="Receita">Receita (Entrada)</option>
-          </select>
-        </div>
-
-        <div class="col-md-2">
-          <button class="btn btn-primary w-100" (click)="salvarLancamentoManual()">
-            <i class="bi bi-plus-lg"></i> Lançar
-          </button>
-        </div>
-
+<div class="card p-3 border-0 shadow-sm bg-white">
+  <div class="row g-2 align-items-center">
+    
+    <div class="col-md-4">
+      <div class="input-group">
+        <span class="input-group-text bg-white border-end-0"><i class="bi bi-pencil-square text-primary"></i></span>
+        <input type="text" 
+               class="form-control border-start-0 text-uppercase" 
+               placeholder="DESCRIÇÃO (EX: SUPERMERCADO)" 
+               [(ngModel)]="novoLancamento.descricao"
+               (input)="novoLancamento.descricao = $any($event.target).value.toUpperCase()">
       </div>
     </div>
+
+    <div class="col-md-2">
+      <div class="input-group">
+        <span class="input-group-text bg-white border-end-0">R$</span>
+        <input type="number" class="form-control border-start-0" placeholder="0,00" [(ngModel)]="novoLancamento.valor">
+      </div>
+    </div>
+
+    <div class="col-md-2">
+      <select class="form-select" [(ngModel)]="novoLancamento.categoriaId">
+        <option [value]="0" disabled selected>Categoria</option>
+        <option *ngFor="let cat of categorias" [value]="cat.id">{{ cat.nome }}</option>
+      </select>
+    </div>
+
+    <div class="col-md-2">
+      <input type="date" class="form-control" [(ngModel)]="novoLancamento.dataEmissao">
+    </div>
+
+    <div class="col-md-2 d-flex gap-2">
+      <select class="form-select" [(ngModel)]="novoLancamento.tipo">
+        <option value="Despesa">Despesa</option>
+        <option value="Receita">Receita</option>
+      </select>
+      
+      <button class="btn btn-primary" (click)="salvarLancamentoManual()" title="Salvar Lançamento">
+        <i class="bi bi-plus-lg"></i>
+      </button>
+    </div>
+
+  </div>
+</div>
   </div>
 
   <hr class="my-4 opacity-25">

@@ -2,37 +2,36 @@ from fastapi import FastAPI, UploadFile, File, HTTPException
 import pdfplumber
 import re
 import json
+from datetime import datetime
+from zoneinfo import ZoneInfo  # 🎯 Importado para corrigir o fuso horário de Brasília
 from thefuzz import fuzz, process
 
 app = FastAPI(title="Motor de Extração de Notas Fiscais - Local")
 
-# 🎯 DICIONÁRIO CENTRALIZADO NO PYTHON (Fácil de manter e expandir)
+# 🎯 DEFINIÇÃO DO FUSO HORÁRIO LOCAL
+FUSO_BR = ZoneInfo("America/Sao_Paulo")
+
+# 🎯 DICIONÁRIO CENTRALIZADO NO PYTHON
 MAPA_CATEGORIAS = {
     "Mercearia": ["FEIJAO", "FEIJÃO", "ARROZ", "OLEO", "ÓLEO", "SOYA", "AZEITE", "ACUCAR", "AÇÚCAR", "CAFE", "CAFÉ", "3CORACOES", "CAPS", "3C", "CAPPUCCINO", "CHA", "CHÁ", "LEAO", "ATUM", "MOLHO", "KISABOR", "EKMA", "KICALDO", "CAMIL", "SAL", "MACARRÃO", "MAC.", "D.BENTA", "RAV", "MEZZ", "4QJOS", "MIX SA", "GRANO", "AZEITOVA"],
-    "Laticínios e Frios": ["LEITE", "NINHO", "MUSSARELA", "MUSS.", "QUEIJO", "QJOS", "QJO", "DANONE", "IOG", "IOGURTE", "RICOTA", "APRESUNTADO", "AURORA", "BATAV", "FERM", "ELEGE", "P QJ", "DUDUXO", "MASSA LEVE", "REQUEIJAO", "MANTEIGA", "PRESUNTO", "MORTADELA", "SALAME", "PEITO PERU"],    
+    "Laticínios e Frios": ["LEITE", "NINHO", "MUSSARELA", "MUSS.", "QUEIJO", "QJOS", "QJO", "DANONE", "IOG", "IOGURTE", "RICOTA", "APRESUNTADO", "AURORA", "BATAV", "FERM", "ELEGE", "P QJ", "DUDUXO", "MASSA LEVE", "REQUEIJAO", "MANTEIGA", "PRESUNTO", "MORTADELA", "SALAME", "PEITO PERU"],     
     "Snacks e Doces": ["BISCOITO", "BISC.", "CLUB SOCIAL", "BOMBOM", "LACTA", "SALG.", "ELMA", "CHIPS", "AMEND", "DOCE", "CRACKER", "RANCHEIRO", "VIVALE", "CHOCOLATE", "CHOC", "GAROTO", "NESTLE", "PASSATEMPO", "WAFER", "BAUDUCCO", "BALA", "FINI", "PIPOCA", "DORITOS", "RUFFLES", "CHEETOS", "PACOCA"],
     "Limpeza": ["OMO", "VANISH", "DETERG", "DET.PO", "AMAC ROUPA", "AMACITEL", "DESINF", "SANOL", "SAC ASSA", "SAC INST.BIO", "60X70", "ESPONJA", "SCOTCH", "BRITE", "PAPEL", "TOALHA", "BULNEZ", "GLADE", "LIMP.PERFUMADO"],
     "Higiene e Saúde": ["SAB.", "DOVE", "REXONA", "DESOD.", "DES.", "COLGATE", "CREME DENT", "CR.D.", "SHAMP", "KARITE", "AERO", "T.MINT"],
-    
-    # Suplementos captura os itens fitness e os minerais/vitaminas de farmácia
     "Suplementos": ["WHEY", "CREATINA", "BWELL", "MAG", "500MG", "PROTEIN", "GROWTH", "VITAMINA"],
-    
-    # Farmácia focada estritamente em medicamentos e tratamentos
     "Farmácia": ["NASOAR", "ENVELO", "FRASC", "REMEDIO", "REMEDIOS", "REM.", "MEDICAMENTO", "COMPRIMIDO", "COMP", "CAPSULA", "DIPIRONA", "PARACETAMOL", "IBUPROFENO", "NEOSALADINA", "DORFLEX", "NEOSALDINA", "POMADA", "FARMACIA", "DROGARIA", "BAND-AID", "GAZE", "ALCOOL 70"],
-    
     "Hortifruti": ["MAND", "SUGUIM", "PEPINO", "ABOBORA", "ABÓBORA", "ITALIANA", "BATATA", "LAVADA", "ALHO", "CEBOLA", "TOMATE", "BANANA", "MACA", "MAÇÃ", "ALFACE", "CENOURA","MIX SA RUS GRANO 1kg"],
-    "Snacks e Doces": ["BISCOITO", "BISC.", "CLUB SOCIAL", "BOMBOM", "LACTA", "SALG.", "ELMA", "AMEND", "DOCE", "CRACKER", "RANCHEIRO", "VIVALE", "CHOCOLATE","SALG.ELMA CHIPS"],
     "Padaria": ["PAO", "PÃO", "PULLMAN", "BISNAGUITO", "KIM"],
     "Bebidas": ["REF.", "SPRITE", "COCO", "PURO COCO", "AGUA", "ÁGUA", "CRYSTAL", "SUCO", "CERVEJA", "VINHO"],
     "Pet Shop": ["RACAO", "RAÇÃO", "PEDIGREE", "DOG", "CAT"],
-    
-    # Novas categorias mapeadas para o processador Python
     "Automóvel": ["GASOLINA", "ALCOOL", "DIESEL", "SHELL", "IPIRANGA", "COMBUSTIVEL", "POSTO", "MECANICO", "OLEO MOTOR"],
     "Estacionamento": ["ESTACIONAMENTO", "ZONA AZUL", "VALETE", "PARKING", "STOP BANK"],
     "Lazer": ["IFOOD", "BURGER", "MC DONALDS", "PIZZA", "CINEMA", "SHOW", "BAR", "RESTAURANTE", "OUTBACK"],
     "Educação": ["FACULDADE", "FAAP", "CURSO", "UDEMY", "LIVRO", "MATRICULA"],
     "Roupas": ["ROUPA", "CAMISA", "TENIS", "TÊNIS", "SAPATO", "CALCA", "CALÇA", "CASACO", "RENNER", "ZARA", "NIKE", "ADIDAS"]
 }
+
+# ... (Mantenha as funções normalizar_valor e classificar_produto_local iguais)
 
 def normalizar_valor(valor_str):
     if not valor_str:
@@ -48,16 +47,13 @@ def classificar_produto_local(nome_produto):
     melhor_categoria = "Outros"
     maior_score = 0
 
-    # Varre nosso dicionário calculando a proximidade matemática das palavras
     for categoria, palavras_chave in MAPA_CATEGORIAS.items():
         for keyword in palavras_chave:
-            # Se a palavra exata estiver no nome, o match é perfeito (Score 100)
             if keyword in nome_alvo:
                 return categoria
             
-            # Fuzzy match para pegar variações ou abreviações do mercado
             score = fuzz.partial_ratio(keyword, nome_alvo)
-            if score > maior_score and score > 80:  # Margem de segurança de 80%
+            if score > maior_score and score > 80:
                 maior_score = score
                 melhor_categoria = categoria
 
@@ -72,6 +68,8 @@ async def extrair_nota(file: UploadFile = File(...)):
 
     itens_extraidos = []
     estabelecimento = "NOTA FISCAL"
+    # Data padrão de fallback caso falte a data no PDF
+    data_emissao_final = datetime.now(FUSO_BR).date().isoformat()
     
     try:
         with pdfplumber.open(file.file) as pdf:
@@ -81,6 +79,18 @@ async def extrair_nota(file: UploadFile = File(...)):
 
             linhas = texto_completo.split('\n')
             print(f"[PYTHON] Total de linhas brutas identificadas: {len(linhas)}")
+
+            # 🎯 NOVA LOGA: CAPTURA AUTOMÁTICA DA DATA DE EMISSÃO DA NOTA
+            # Busca o padrão dd/mm/aaaa (Ex: 06/06/2026) em todo o texto
+            match_data = re.search(r'(0[1-9]|[12][0-9]|3[01])/(0[1-9]|1[0-2])/([0-9]{4})', texto_completo)
+            if match_data:
+                string_data = match_data.group(0)
+                try:
+                    # Converte de dd/mm/aaaa para o formato aceito globalmente por APIs (aaaa-mm-dd)
+                    data_emissao_final = datetime.strptime(string_data, "%d/%m/%Y").date().isoformat()
+                    print(f"[PYTHON 🎯] Data de emissão real encontrada no PDF: {data_emissao_final}")
+                except Exception as ex_dt:
+                    print(f"[PYTHON ⚠️] Falha ao formatar data encontrada: {str(ex_dt)}")
 
             texto_caps = texto_completo.upper()
             if "WMS SUPERMERCADOS" in texto_caps or "SONDA" in texto_caps or "WALMART" in texto_caps:
@@ -114,7 +124,6 @@ async def extrair_nota(file: UploadFile = File(...)):
                         qtd = normalizar_valor(match_qtd.group(1)) if match_qtd else 1.0
 
                         if preco > 0:
-                            # 🎯 Aplica a nossa classificação local rápida baseada em inteligência estatística
                             categoria_detectada = classificar_produto_local(nome_pendente)
                             
                             itens_extraidos.append({
@@ -128,7 +137,8 @@ async def extrair_nota(file: UploadFile = File(...)):
 
         print(f"[PYTHON] Processamento concluído. {len(itens_extraidos)} itens processados com sucesso.")
         return {
-            "estabelecimento": estabelecimento if 'establishment' in locals() else estabelecimento,
+            "estabelecimento": estabelecimento,
+            "dataEmissao": data_emissao_final, # 🎯 Retorna a propriedade contendo a data retroativa exata!
             "textoBruto": texto_completo,
             "itens": itens_extraidos
         }

@@ -1,0 +1,129 @@
+/* --- Estrutura e Layout --- */
+:host {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  width: 100vw;
+  background-color: #f4f7f6;
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 9999;
+}
+
+.login-box {
+  display: flex;
+  width: 800px;
+  height: 500px;
+  background: white;
+  border-radius: 20px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.purple-panel {
+  flex: 1;
+  background: #6c5ce7;
+  padding: 40px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  color: white;
+}
+
+.form-panel {
+  flex: 1;
+  padding: 40px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+/* --- Formulário e Campos --- */
+.custom-form {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  width: 100%;
+}
+
+.field-wrapper {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+label {
+  font-weight: 600;
+  margin-bottom: 5px;
+  font-size: 0.9rem;
+  color: #333;
+}
+
+/* --- Input Group (Ícone + Input) --- */
+.input-group {
+  display: flex;
+  flex-wrap: nowrap;
+  width: 100%;
+}
+
+.input-group-text {
+  background-color: #f8f9fa;
+  border: 1px solid #ced4da;
+  border-right: none;
+  border-radius: 8px 0 0 8px;
+  color: #6c5ce7;
+  padding: 0 15px;
+  display: flex;
+  align-items: center;
+}
+
+.form-control {
+  border: 1px solid #ced4da;
+  border-left: none;
+  border-radius: 0 8px 8px 0;
+  padding: 12px;
+  font-size: 15px;
+  width: 100%;
+}
+
+.form-control:focus {
+  border-color: #6c5ce7;
+  outline: none;
+  box-shadow: 0 0 0 0.2rem rgba(108, 92, 231, 0.25);
+}
+
+/* --- Validação e Erros --- */
+.form-control.is-invalid {
+  border-color: #dc3545 !important;
+}
+
+.error-border {
+  border-color: #dc3545 !important;
+}
+
+.error-msg {
+  color: #dc3545;
+  font-size: 0.75rem;
+  margin-top: 5px;
+  font-weight: 500;
+}
+
+/* --- Botão --- */
+.btn-primary {
+  width: 100%;
+  padding: 12px;
+  background: #6c5ce7;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  margin-top: 10px;
+  font-weight: 600;
+}
+
+.btn-primary:disabled {
+  background: #a29bfe;
+  cursor: not-allowed;
+}

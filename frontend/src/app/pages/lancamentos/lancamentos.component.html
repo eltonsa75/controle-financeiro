@@ -24,7 +24,7 @@
         </div>
 
         <div class="cards-list">
-          @for (item of listaLancamentos; track $index) {
+          @for (item of listaLancamentos; track item.id || $index) {
             @if (item.tipo === 'receita') {
               <div class="card">
                 <input type="text" [(ngModel)]="item.descricao" placeholder="Ex: Salário">
@@ -33,7 +33,7 @@
                   <option [ngValue]="null">Selecione...</option>
                   <option *ngFor="let cat of categorias" [ngValue]="cat.id">{{cat.nome}}</option>
                 </select>
-                <button class="btn-del" (click)="remover(item.id)">✕</button>
+                <button class="btn-del" (click)="remover(item.id ?? 0)">✕</button>
               </div>
             }
           } @empty {
@@ -55,7 +55,7 @@
         </div>
 
         <div class="cards-list">
-          @for (item of listaLancamentos; track $index) {
+          @for (item of listaLancamentos; track item.id || $index) {
             @if (item.tipo === 'despesa') {
               <div class="card">
                 <input type="text" [(ngModel)]="item.descricao" placeholder="Ex: Aluguel">
@@ -64,7 +64,7 @@
                   <option [ngValue]="null">Selecione...</option>
                   <option *ngFor="let cat of categorias" [ngValue]="cat.id">{{cat.nome}}</option>
                 </select>
-                <button class="btn-del" (click)="remover(item.id)">✕</button>
+                <button class="btn-del" (click)="remover(item.id ?? 0)">✕</button>
               </div>
             }
           } @empty {
@@ -72,6 +72,12 @@
           }
         </div>
       </div>
+    </div>
+
+    <div class="pagination-controls" style="margin-top: 20px; text-align: center;">
+      <button class="btn btn-sm btn-outline-primary" [disabled]="currentPage === 1" (click)="onPageChange(currentPage - 1)">Anterior</button>
+      <span style="margin: 0 15px; font-weight: bold;">Página {{ currentPage }}</span>
+      <button class="btn btn-sm btn-outline-primary" (click)="onPageChange(currentPage + 1)">Próximo</button>
     </div>
 
     <div class="footer-save" *ngIf="listaLancamentos.length > 0">

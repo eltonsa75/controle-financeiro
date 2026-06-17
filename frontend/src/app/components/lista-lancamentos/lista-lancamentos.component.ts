@@ -6,6 +6,7 @@ import { CategoriaService } from '../../services/services/categoria.service';
 import { Router, RouterModule } from '@angular/router'; 
 import { Lancamento } from '../../models/financeiro.model';
 import Swal from 'sweetalert2';
+import { firstValueFrom } from 'rxjs';
 
 declare var bootstrap: any;
 
@@ -21,16 +22,13 @@ export class ListaLancamentosComponent implements OnInit {
   listaLancamentos: Lancamento[] = []; 
   categorias: any[] = [];
   carregando: boolean = true; 
-  
   mesAnoSelecionado: string = ''; 
 
   itensSelecionados: any[] = [];
-  descricaoModal: string = '';
   lancamentoSelecionado: Lancamento | null = null;
 
-  // ========== CONTROLES DE PAGINAÇÃO LOCAL UNIFICADOS ==========
   paginaAtual: number = 1;
-  itensPorPagina: number = 8; // Define quantos itens aparecem por vez no modal
+  itensPorPagina: number = 10;
 
   constructor(
     private financeiroService: FinanceiroService,
@@ -54,186 +52,79 @@ export class ListaLancamentosComponent implements OnInit {
 
   carregarLancamentos() {
     this.carregando = true;
-    this.listaLancamentos = [];
-
     this.financeiroService.getLancamentos().subscribe({
       next: (dados) => {
-        if (dados && dados.length > 0) {
-          this.listaLancamentos = dados.sort((a, b) => 
-            new Date(b.dataEmissao).getTime() - new Date(a.dataEmissao).getTime()
-          );
-        } else {
-          console.warn('A API retornou um array vazio.');
-        }
+        this.listaLancamentos = (dados || []).sort((a, b) => 
+          new Date(b.dataEmissao).getTime() - new Date(a.dataEmissao).getTime()
+        );
         this.carregando = false;
       },
       error: (err) => {
-        console.error('Erro na requisição:', err);
+        console.error('Erro:', err);
         this.carregando = false;
       }
     });
   }
 
-  filtrarPorMes(event: any) {
-    this.mesAnoSelecionado = event.target.value; 
-    if (this.mesAnoSelecionado) {
-      this.carregarLancamentos();
-      this.carregarCategorias();
-    }
-  }
-
-  adicionarLinha(tipo: string): void {
-    const hojeIso = new Date().toISOString();
-    
-    const novo: Lancamento = {
-      id: 0,
-      descricao: '',
-      valor: 0,
-      tipo: tipo, 
-      data: hojeIso,
-      dataEmissao: hojeIso,   
-      dataImportacao: hojeIso, 
-      categoriaId: 1          
-    };
-    this.listaLancamentos.unshift(novo); 
-  }
-
-  abrirNovoLancamento(): void {
-    this.router.navigate(['/compras']);
-  }
-
-  salvarTudo(): void {
-    const itensParaSalvar = this.listaLancamentos.filter(l => l.id === 0 && l.descricao !== '');
-
-    if (itensParaSalvar.length === 0) {
-       Swal.fire('Info', 'Nenhum lançamento novo para salvar.', 'info');
-       return;
-    }
-
-    Swal.fire({ title: 'Salvando...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-
-    const promessas = itensParaSalvar.map(l => {
-      l.dataEmissao = l.dataEmissao || new Date().toISOString();
-      l.dataImportacao = new Date().toISOString();
-      return this.financeiroService.salvarLancamento(l).toPromise();
-    });
-
-    Promise.all(promessas)
-      .then(() => {
-        Swal.fire({ icon: 'success', title: 'Sucesso', text: 'Lançamentos salvos!', timer: 1500, showConfirmButton: false });
-        this.carregarLancamentos();
-      })
-      .catch(() => Swal.fire('Erro', 'Problema ao salvar alguns itens.', 'error'));
-  }
-
-  temTipo(tipo: string): boolean {
-    return this.listaLancamentos.some(item => item.tipo?.toLowerCase() === tipo.toLowerCase());
-  }
-
-  remover(id: number | undefined) {
-    if (id === undefined || id === 0) {
-      this.listaLancamentos = this.listaLancamentos.filter(l => l.id !== id);
-      return;
-    }
-    this.excluir(id);
-  }
-
-  abrirModalCategorias() {
-    const modalElement = document.getElementById('modalCategorias');
-    if (modalElement) {
-      const modalInstance = new bootstrap.Modal(modalElement);
-      modalInstance.show();
-    }
-  }
-
-  // 🎯 CORRIGIDO: Vincula a resposta da API à paginação e reseta o índice da página
+  // --- MÉTODO RECUPERADO ---
   abrirModalItens(lancamento: Lancamento) {
     this.lancamentoSelecionado = lancamento;
-    this.descricaoModal = lancamento.descricao;
-    this.paginaAtual = 1; // Reseta para a página 1 ao abrir uma nova nota
+    this.paginaAtual = 1; 
 
-    Swal.fire({ title: 'Buscando itens...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
+    Swal.fire({ title: 'Buscando itens...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
 
     this.financeiroService.getItensPorLancamento(lancamento.id!).subscribe({
       next: (data) => {
         this.itensSelecionados = data || [];
         Swal.close();
+        
         const modalElement = document.getElementById('modalItens');
-        if (modalElement) { new bootstrap.Modal(modalElement).show(); }
+        if (modalElement) { 
+          const modalInstance = new bootstrap.Modal(modalElement);
+          modalInstance.show(); 
+        }
       },
-      error: () => Swal.fire('Erro', 'Não carregou os itens.', 'error')
+      error: () => {
+        this.itensSelecionados = [];
+        Swal.fire('Erro', 'Não foi possível carregar os itens.', 'error');
+      }
     });
   }
 
-  fecharModal() {
-    this.lancamentoSelecionado = null;
-    this.itensSelecionados = [];
-    this.paginaAtual = 1;
+  onPageChange(novaPagina: number): void {
+    this.paginaAtual = novaPagina;
   }
 
-// ========== GERADOR DE NÚMEROS DA PAGINAÇÃO DINÂMICA SAAS ==========
-  get paginasVisiveis(): (number | string)[] {
-    const total = this.totalPaginas;
-    const atual = this.paginaAtual;
-    const paginas: (number | string)[] = [];
+  async salvarTudo(): Promise<void> {
+    const itensParaSalvar = this.listaLancamentos.filter(l => l.id === 0 && l.descricao !== '');
+    if (itensParaSalvar.length === 0) return;
 
-    if (total <= 5) {
-      for (let i = 1; i <= total; i++) paginas.push(i);
-    } else {
-      paginas.push(1);
+    Swal.fire({ title: 'Salvando...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
 
-      if (atual > 3) {
-        paginas.push('...');
+    try {
+      for (const item of itensParaSalvar) {
+        await firstValueFrom(this.financeiroService.salvarLancamento(item));
       }
-
-      const inicio = Math.max(2, atual - 1);
-      const fim = Math.min(total - 1, atual + 1);
-
-      for (let i = inicio; i <= fim; i++) {
-        if (!paginas.includes(i)) paginas.push(i);
-      }
-
-      if (atual < total - 2) {
-        paginas.push('...');
-      }
-
-      if (!paginas.includes(total)) paginas.push(total);
+      Swal.fire({ icon: 'success', title: 'Sucesso', text: 'Lançamentos salvos!', timer: 1500 });
+      this.carregarLancamentos();
+    } catch (error) {
+      Swal.fire('Erro', 'Problema ao salvar alguns itens.', 'error');
     }
-
-    return paginas;
-  }
-
-  irParaPagina(pagina: number | string): void {
-    if (typeof pagina === 'number') {
-      this.paginaAtual = pagina;
-    }
-  }
-
-  // Métodos de navegação simples
-  proximaPagina() {
-    if (this.paginaAtual < this.totalPaginas) this.paginaAtual++;
-  }
-
-  paginaAnterior() {
-    if (this.paginaAtual > 1) this.paginaAtual--;
   }
 
   get totalPaginas(): number {
-    if (!this.itensSelecionados || this.itensSelecionados.length === 0) return 1;
-    return Math.ceil(this.itensSelecionados.length / this.itensPorPagina);
+    return Math.ceil(this.listaLancamentos.length / this.itensPorPagina) || 1;
   }
 
-  get itensPaginados(): any[] {
-    if (!this.itensSelecionados || this.itensSelecionados.length === 0) return [];
+  get lancamentosPaginados(): Lancamento[] {
     const inicio = (this.paginaAtual - 1) * this.itensPorPagina;
-    const fim = inicio + this.itensPorPagina;
-    return this.itensSelecionados.slice(inicio, fim);
+    return this.listaLancamentos.slice(inicio, inicio + this.itensPorPagina);
   }
 
   excluir(id: number) {
     Swal.fire({
       title: 'Excluir?',
-      text: "Isso removerá o registro do banco!",
+      text: "Isso removerá o registro!",
       icon: 'warning',
       showCancelButton: true,
       confirmButtonColor: '#dc3545',

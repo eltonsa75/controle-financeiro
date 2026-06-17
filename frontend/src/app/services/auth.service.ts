@@ -3,7 +3,8 @@ import {
   Auth,
   signInWithEmailAndPassword,
   signOut,
-  user
+  user,
+  createUserWithEmailAndPassword
 } from '@angular/fire/auth';
 
 @Injectable({
@@ -33,6 +34,21 @@ export class AuthService {
 
     return credential;
   }
+
+  async registrar(email: string, pass: string) {
+  // Cria o usuário no Firebase
+  const credential = await createUserWithEmailAndPassword(
+    this.auth,
+    email,
+    pass
+  );
+
+  // Opcional: já loga o usuário após criar a conta
+  const token = await credential.user.getIdToken();
+  localStorage.setItem('token', token);
+
+  return credential;
+}
 
   async logout() {
 
