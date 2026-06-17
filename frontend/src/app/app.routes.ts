@@ -2,6 +2,7 @@ import { Routes } from '@angular/router';
 import { LoginComponent } from './components/login/login.component';
 import { authGuard } from './guards/auth.guard'; // Importação do Guard
 import { ForgotPasswordComponent } from './components/forgot-password/forgot-password.component';
+import { NewPasswordComponent } from './components/new-password/new-password.component';
 
 export const routes: Routes = [
   // 1. ROTAS DE AUTENTICAÇÃO (Públicas)
@@ -25,6 +26,7 @@ export const routes: Routes = [
       { path: 'categorias', loadComponent: () => import('./pages/categorias/categorias.component').then(m => m.CategoriasComponent) },
       { path: 'estoque', loadComponent: () => import('./pages/estoque/estoque.component').then(m => m.EstoqueComponent) },
       { path: 'forgot-password', component: ForgotPasswordComponent },
+      { path: 'nova-senha', component: NewPasswordComponent },
     ]
   },
   
