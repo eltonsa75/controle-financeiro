@@ -3,7 +3,7 @@ import pdfplumber
 import re
 import json
 from datetime import datetime
-from zoneinfo import ZoneInfo  # 🎯 Importado para corrigir o fuso horário de Brasília
+from zoneinfo import ZoneInfo  # 🎯 Fuso horário de Brasília corrigido
 from thefuzz import fuzz, process
 
 app = FastAPI(title="Motor de Extração de Notas Fiscais - Local")
@@ -30,8 +30,6 @@ MAPA_CATEGORIAS = {
     "Educação": ["FACULDADE", "FAAP", "CURSO", "UDEMY", "LIVRO", "MATRICULA"],
     "Roupas": ["ROUPA", "CAMISA", "TENIS", "TÊNIS", "SAPATO", "CALCA", "CALÇA", "CASACO", "RENNER", "ZARA", "NIKE", "ADIDAS"]
 }
-
-# ... (Mantenha as funções normalizar_valor e classificar_produto_local iguais)
 
 def normalizar_valor(valor_str):
     if not valor_str:
@@ -68,7 +66,6 @@ async def extrair_nota(file: UploadFile = File(...)):
 
     itens_extraidos = []
     estabelecimento = "NOTA FISCAL"
-    # Data padrão de fallback caso falte a data no PDF
     data_emissao_final = datetime.now(FUSO_BR).date().isoformat()
     
     try:
@@ -80,13 +77,11 @@ async def extrair_nota(file: UploadFile = File(...)):
             linhas = texto_completo.split('\n')
             print(f"[PYTHON] Total de linhas brutas identificadas: {len(linhas)}")
 
-            # 🎯 NOVA LOGA: CAPTURA AUTOMÁTICA DA DATA DE EMISSÃO DA NOTA
-            # Busca o padrão dd/mm/aaaa (Ex: 06/06/2026) em todo o texto
+            # CAPTURA AUTOMÁTICA DA DATA DE EMISSÃO DA NOTA
             match_data = re.search(r'(0[1-9]|[12][0-9]|3[01])/(0[1-9]|1[0-2])/([0-9]{4})', texto_completo)
             if match_data:
                 string_data = match_data.group(0)
                 try:
-                    # Converte de dd/mm/aaaa para o formato aceito globalmente por APIs (aaaa-mm-dd)
                     data_emissao_final = datetime.strptime(string_data, "%d/%m/%Y").date().isoformat()
                     print(f"[PYTHON 🎯] Data de emissão real encontrada no PDF: {data_emissao_final}")
                 except Exception as ex_dt:
@@ -126,19 +121,23 @@ async def extrair_nota(file: UploadFile = File(...)):
                         if preco > 0:
                             categoria_detectada = classificar_produto_local(nome_pendente)
                             
+                            # 🎯 CORREÇÃO CRÍTICA: Calcula o valor total do item multiplicando Qtd por Preço Unitário
+                            valor_total_item = round(qtd * preco, 2)
+                            
                             itens_extraidos.append({
                                 "descricao": nome_pendente,
                                 "quantidade": qtd,
-                                "preco": preco,
+                                "preco": preco,                # Preço Unitário
+                                "valorTotal": valor_total_item, # 🎯 Chave que alimenta o front-end!
                                 "categoria": categoria_detectada
                             })
-                            print(f"   -> [LOCAL MATCH] {nome_pendente} ===> {categoria_detectada}")
+                            print(f"   -> [MATCH] {nome_pendente} (Qtd: {qtd} x R$ {preco} = Total: R$ {valor_total_item})")
                         nome_pendente = None
 
         print(f"[PYTHON] Processamento concluído. {len(itens_extraidos)} itens processados com sucesso.")
         return {
             "estabelecimento": estabelecimento,
-            "dataEmissao": data_emissao_final, # 🎯 Retorna a propriedade contendo a data retroativa exata!
+            "dataEmissao": data_emissao_final, 
             "textoBruto": texto_completo,
             "itens": itens_extraidos
         }
