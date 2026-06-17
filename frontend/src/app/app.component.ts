@@ -27,8 +27,8 @@ export class AppComponent {
   }
 
   private verificarRota(url: string) {
-    // Adicionamos '/forgot-password' na lista para esconder a sidebar também nela
-    const rotasSemSidebar = ['/login', '/cadastro', '/forgot-password'];
+    // ADICIONADO: '/nova-senha' na lista de rotas ignoradas
+    const rotasSemSidebar = ['/login', '/cadastro', '/forgot-password', '/nova-senha'];
     
     // A sidebar só aparece se a URL atual não estiver na lista de rotas ignoradas
     this.mostrarSidebar = !rotasSemSidebar.some(rota => url.includes(rota));
