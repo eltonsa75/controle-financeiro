@@ -15,7 +15,7 @@ export class NewPasswordComponent {
   private auth = inject(Auth);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
-  
+
   passForm: FormGroup;
   oobCode: string = '';
   mensagem: string = '';
@@ -26,10 +26,10 @@ export class NewPasswordComponent {
     this.passForm = this.fb.group({
       password: ['', [Validators.required, Validators.minLength(6)]],
       confirmPassword: ['', [Validators.required]]
-    }, { 
+    }, {
       validators: this.passwordMatchValidator // Validador customizado
     });
-    
+
     // Captura o token de segurança da URL enviado pelo e-mail
     this.oobCode = this.route.snapshot.queryParams['oobCode'] || '';
   }
@@ -45,14 +45,14 @@ export class NewPasswordComponent {
     if (this.passForm.valid && this.oobCode) {
       this.enviando = true;
       this.mensagem = '';
-      
+
       try {
         const novaSenha = this.passForm.get('password')?.value;
         await confirmPasswordReset(this.auth, this.oobCode, novaSenha);
-        
+
         this.isSucesso = true;
         this.mensagem = 'Senha redefinida com sucesso! Redirecionando para o login...';
-        
+
         // Redireciona para a tela de login após 2.5 segundos
         setTimeout(() => this.router.navigate(['/login']), 2500);
       } catch (error: any) {

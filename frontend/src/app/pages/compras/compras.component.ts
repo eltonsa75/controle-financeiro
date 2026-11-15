@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { FinanceiroService } from '../../services/financeiro.service';
-import { Lancamento } from '../../models/financeiro.model'; 
+import { Lancamento } from '../../models/financeiro.model';
 import Swal from 'sweetalert2';
 
 interface ItemCompraLocal {
@@ -16,12 +16,12 @@ interface ItemCompraLocal {
   categoria: string;
 }
 
-const ESTADO_INICIAL_RAPIDO = { 
-  descricao: '', 
-  valor: null as any, 
-  tipo: 'Despesa', 
+const ESTADO_INICIAL_RAPIDO = {
+  descricao: '',
+  valor: null as any,
+  tipo: 'Despesa',
   categoriaId: 0,
-  dataEmissao: '' 
+  dataEmissao: ''
 };
 
 @Component({
@@ -41,15 +41,15 @@ export class ComprasComponent implements OnInit {
   saldoRestante: number = 0;
   porcentagemGasta: number = 0;
   descricaoCompra: string = '';
-  dataCompraPlanejada: string = ''; 
+  dataCompraPlanejada: string = '';
   tentouSalvar: boolean = false;
 
-  categorias: any[] = []; 
+  categorias: any[] = [];
   novoLancamento = { ...ESTADO_INICIAL_RAPIDO };
 
   sugestoesLocais: string[] = ['Atacadão', 'Carrefour', 'Pão de Açúcar', 'Posto Shell', 'Farmácia Preço Popular'];
   listaCategoriasItens: string[] = ['Açougue', 'Hortifruti', 'Limpeza', 'Higiene', 'Bebidas', 'Padaria', 'Mercearia', 'Laticínios', 'Outros', 'Farmacia'];
-  
+
   compraAnterior = {
     valor: 1000.00,
     local: 'Supermercado Atacadão',
@@ -62,11 +62,11 @@ export class ComprasComponent implements OnInit {
   ngOnInit(): void {
     // 🎯 CORRIGIDO: Captura o dia, mês e ano locais do computador, evitando conversões UTC truncadas
     const hojeLocal = this.obterDataLocalString();
-    
+
     this.novoLancamento.dataEmissao = hojeLocal;
     this.dataCompraPlanejada = hojeLocal;
     this.inicializarLinhas();
-    
+
     this.carregarCategorias();
   }
 
@@ -103,11 +103,11 @@ export class ComprasComponent implements OnInit {
     }
 
     const valorAbsoluto = Math.abs(Number(this.novoLancamento.valor));
-    
+
     // Convertendo para String ISO contendo fuso local ou adicionando o horário de meio-dia para evitar retrocesso de fuso
     const dataEmissaoFormatada = new Date(this.novoLancamento.dataEmissao + 'T12:00:00').toISOString();
 
-    const dadosParaEnviar: Lancamento = { 
+    const dadosParaEnviar: Lancamento = {
       descricao: this.novoLancamento.descricao,
       valor: this.novoLancamento.tipo === 'Despesa' ? -valorAbsoluto : valorAbsoluto,
       data: new Date().toISOString(),
@@ -139,9 +139,16 @@ export class ComprasComponent implements OnInit {
     this.calcularTotal();
   }
 
-  criarLinhaVazia(): ItemCompraLocal {
-    return { descricao: '', quantidade: 1, unidade: 'un', preco: null, comprado: false, category: 'Mercearia' } as any;
-  }
+criarLinhaVazia(): ItemCompraLocal {
+  return {
+    descricao: '',
+    quantidade: 1,
+    unidade: 'un',
+    preco: null,
+    comprado: false,
+    categoria: 'Mercearia'
+  };
+}
 
   adicionarLinha(): void {
     this.itens.push(this.criarLinhaVazia());
@@ -163,92 +170,223 @@ export class ComprasComponent implements OnInit {
 
   calcularComparativo(): void {
     this.diferencaValor = this.total - this.compraAnterior.valor;
-    this.statusComparativo = this.total === 0 ? 'Aguardando itens...' : 
+    this.statusComparativo = this.total === 0 ? 'Aguardando itens...' :
                              (this.total > this.compraAnterior.valor ? 'Mais cara' : 'Mais barata');
   }
 
-  aoSelecionarArquivo(event: any) {
-    const ficheiro = event.target.files[0];
-    if (ficheiro) {
-      const formData = new FormData();
-      formData.append("pdf", ficheiro);
+aoSelecionarArquivo(event: any): void {
+  const ficheiro = event.target.files[0];
 
-      this.exibirLoading('Lendo PDF e salvando lançamento...');
+  if (!ficheiro) {
+    return;
+  }
 
-      this.financeiroService.uploadPdf(formData).subscribe({
-        next: (res: any) => {
-          Swal.close();
+  const formData = new FormData();
+  formData.append('pdf', ficheiro);
 
-          Swal.fire({ 
-            icon: 'success', 
-            title: 'Importado com Sucesso!', 
-            text: 'A nota e os itens já foram registrados.',
-            timer: 2000, 
-            showConfirmButton: false 
-          });
+  this.exibirLoading('Lendo PDF e salvando lançamento...');
 
-          this.router.navigate(['/lista']);
-        },
-        error: (err) => {
-          console.error('Erro no upload/salvamento:', err);
-          Swal.fire('Erro na Importação', 'Não conseguimos processar ou salvar este PDF.', 'error');
-        }
+  this.financeiroService.uploadPdf(formData).subscribe({
+    next: (res: any) => {
+      Swal.close();
+
+      Swal.fire({
+        icon: 'success',
+        title: 'Importado com Sucesso!',
+        text: 'A nota e os itens já foram registrados.',
+        timer: 2000,
+        showConfirmButton: false
       });
-    }
-  }
 
-  salvarCompra(): void {
-    this.tentouSalvar = true;
-    if (!this.descricaoCompra) {
-      this.exibirErro('Informe o Local ou Supermercado.');
-      return;
-    }
+      // Limpa o input para permitir selecionar novamente
+      // o mesmo arquivo posteriormente.
+      event.target.value = '';
 
-    const itensValidos = this.itens.filter(i => i.descricao && i.descricao.trim() !== '');
-    
-    // 🎯 TRATAMENTO ADICIONAL: Aplica segurança ao salvar a lista de compras manual do supermercado também
-    const dataCompraFormatada = new Date(this.dataCompraPlanejada + 'T12:00:00').toISOString();
+      this.router.navigate(['/lista']);
+    },
 
-    const lancamentoFinal: Lancamento = {
-      descricao: this.descricaoCompra,
-      valor: -Math.abs(this.total),
-      data: new Date().toISOString(),
-      dataEmissao: dataCompraFormatada,
-      dataImportacao: new Date().toISOString(),
-      tipo: 'Despesa',
-      categoriaId: 1, 
-      itens: itensValidos.map(item => ({
-        descricao: item.descricao,
-        preco: item.preco || 0,
-        quantidade: item.quantidade || 1,
-        unidade: item.unidade,
-        categoria: item.categoria,
-        comprado: true
-      }))
-    };
+error: (err) => {
+  Swal.close();
 
-    this.exibirLoading('Registrando compra no banco...');
+  if (Number(err?.status) === 409) {
 
-    this.financeiroService.salvarLancamento(lancamentoFinal).subscribe({
-      next: () => {
-        Swal.fire({ icon: 'success', title: 'Compra Salva!', timer: 2000, showConfirmButton: false });
-        this.router.navigate(['/dashboard']);
-      },
-      error: (err) => {
-        console.error('Erro ao salvar:', err);
-        Swal.fire('Erro no Servidor', 'Verifique a API.', 'error');
-      }
+    Swal.fire({
+      icon: 'warning',
+      title: 'Nota já importada',
+      text: 'Esta nota fiscal já foi importada anteriormente e não será cadastrada novamente.',
+      confirmButtonText: 'OK',
+      confirmButtonColor: '#7c4dff'
     });
+
+    event.target.value = '';
+    return;
   }
+
+  Swal.fire({
+    icon: 'error',
+    title: 'Erro na Importação',
+    text: 'Não conseguimos processar ou salvar este PDF.',
+    confirmButtonText: 'OK',
+    confirmButtonColor: '#7c4dff'
+  });
+
+  event.target.value = '';
+}
+  });
+}
+
+
+salvarCompra(): void {
+  this.tentouSalvar = true;
+
+  if (!this.descricaoCompra?.trim()) {
+    this.exibirErro('Informe o Local ou Supermercado.');
+    return;
+  }
+
+  const itensValidos = this.itens.filter(
+    i => i.descricao && i.descricao.trim() !== ''
+  );
+
+  if (itensValidos.length === 0) {
+    this.exibirErro('Adicione pelo menos um produto à compra.');
+    return;
+  }
+
+  // Normaliza textos para comparar nomes com ou sem acentos
+  const normalizar = (texto: string): string =>
+    (texto || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim()
+      .toLowerCase();
+
+  const estabelecimento = normalizar(this.descricaoCompra);
+
+  // Identifica a categoria principal da compra
+  let nomeCategoria = '';
+
+  if (
+    estabelecimento.includes('farmacia') ||
+    estabelecimento.includes('drogaria') ||
+    estabelecimento.includes('drogasil') ||
+    estabelecimento.includes('droga raia')
+  ) {
+    nomeCategoria = 'Farmácia';
+  } else if (
+    estabelecimento.includes('supermercado') ||
+    estabelecimento.includes('mercado') ||
+    estabelecimento.includes('atacadao') ||
+    estabelecimento.includes('carrefour') ||
+    estabelecimento.includes('pao de acucar')
+  ) {
+    nomeCategoria = 'Supermercado';
+  } else {
+    // Procura a categoria predominante entre os itens
+    const contagem: Record<string, number> = {};
+
+    for (const item of itensValidos) {
+      const categoriaItem = normalizar(item.categoria);
+
+      if (categoriaItem) {
+        contagem[categoriaItem] =
+          (contagem[categoriaItem] || 0) + 1;
+      }
+    }
+
+    const categoriaPredominante = Object.entries(contagem)
+      .sort((a, b) => b[1] - a[1])[0]?.[0] || '';
+
+    if (categoriaPredominante === 'higiene') {
+      nomeCategoria = 'Higiene e Saúde';
+    } else if (categoriaPredominante === 'farmacia') {
+      nomeCategoria = 'Farmácia';
+    } else {
+      nomeCategoria = categoriaPredominante;
+    }
+  }
+
+  // Localiza o ID real da categoria no MySQL
+  const categoriaSelecionada = this.categorias.find(
+    (c: any) =>
+      normalizar(c.nome) === normalizar(nomeCategoria)
+  );
+
+  if (!categoriaSelecionada || Number(categoriaSelecionada.id) <= 0) {
+    Swal.fire({
+      icon: 'warning',
+      title: 'Categoria não encontrada',
+      text: `Não foi possível localizar a categoria "${nomeCategoria || 'não identificada'}" no banco de dados. Verifique as categorias cadastradas.`
+    });
+    return;
+  }
+
+  // Preserva a data local da compra
+  if (!this.dataCompraPlanejada) {
+    this.exibirErro('Informe a data da compra.');
+    return;
+  }
+
+  const dataCompraFormatada = new Date(
+    this.dataCompraPlanejada + 'T12:00:00'
+  ).toISOString();
+
+  const lancamentoFinal: Lancamento = {
+    descricao: this.descricaoCompra,
+    valor: -Math.abs(this.total),
+    data: new Date().toISOString(),
+    dataEmissao: dataCompraFormatada,
+    dataImportacao: new Date().toISOString(),
+    tipo: 'Despesa',
+
+    // ID real encontrado no banco de dados
+    categoriaId: Number(categoriaSelecionada.id),
+
+    itens: itensValidos.map(item => ({
+      descricao: item.descricao,
+      preco: item.preco || 0,
+      quantidade: item.quantidade || 1,
+      unidade: item.unidade,
+      categoria: item.categoria,
+      comprado: true
+    }))
+  };
+
+  this.exibirLoading('Registrando compra no banco...');
+
+  this.financeiroService.salvarLancamento(lancamentoFinal).subscribe({
+    next: () => {
+      Swal.fire({
+        icon: 'success',
+        title: 'Compra Salva!',
+        timer: 2000,
+        showConfirmButton: false
+      });
+
+      this.router.navigate(['/dashboard']);
+    },
+
+    error: (err) => {
+      console.error('Erro ao salvar compra:', err);
+
+      Swal.fire(
+        'Erro ao salvar',
+        'Não foi possível registrar a compra.',
+        'error'
+      );
+    }
+  });
+}
+
 
   private exibirErro(msg: string) {
     Swal.fire({ icon: 'error', title: 'Atenção', text: msg, confirmButtonColor: '#7c4dff' });
   }
 
   private exibirLoading(titulo: string) {
-    Swal.fire({ 
-      title: titulo, 
-      allowOutsideClick: false, 
+    Swal.fire({
+      title: titulo,
+      allowOutsideClick: false,
       didOpen: () => Swal.showLoading(),
       confirmButtonColor: '#7c4dff'
     });

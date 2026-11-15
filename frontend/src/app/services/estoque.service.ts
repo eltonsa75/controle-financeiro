@@ -1,6 +1,9 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { environment } from '../../environments/environment';
+
+
 
 export interface ItemEstoque {
   id: number;
@@ -10,17 +13,17 @@ export interface ItemEstoque {
   unidadeMedida: string;
   categoriaId: number;
   // Adicionamos corHex aqui para evitar erro no template HTML
-  categoria?: { 
-    nome: string; 
-    corHex?: string; 
-  }; 
+  categoria?: {
+    nome: string;
+    corHex?: string;
+  };
 }
 
 @Injectable({
   providedIn: 'root'
 })
 export class EstoqueService {
-  private readonly API = 'http://localhost:5037/api/estoque';
+private readonly API = `${environment.apiUrl}/estoque`;
 
   constructor(private http: HttpClient) {}
 

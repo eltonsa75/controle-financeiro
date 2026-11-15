@@ -1,7 +1,7 @@
 ﻿using Dapper;
 using Financeiro.Api.Models.DTO;
 using Microsoft.Extensions.Configuration;
-using MySql.Data.MySqlClient;
+using MySqlConnector;
 using System.Data;
 
 namespace Financeiro.Api.Repositories
@@ -12,7 +12,8 @@ namespace Financeiro.Api.Repositories
 
         public FinanceiroRepository(IConfiguration config)
         {
-            _connectionString = config.GetConnectionString("DefaultConnection");
+            _connectionString = config.GetConnectionString("DefaultConnection")
+                                ?? "Server=mysql-db;Database=comprasintelig;Uid=root;Pwd=sua_senha;";
         }
 
         private IDbConnection Connection => new MySqlConnection(_connectionString);
@@ -22,155 +23,261 @@ namespace Financeiro.Api.Repositories
             using (var conn = Connection)
             {
                 const string sql = @"
-                SELECT 
+                SELECT
                     COALESCE(SUM(CASE WHEN LOWER(TRIM(Tipo)) = 'receita' THEN Valor ELSE 0 END), 0) as receitas,
                     COALESCE(SUM(CASE WHEN LOWER(TRIM(Tipo)) = 'despesa' THEN Valor ELSE 0 END), 0) as despesas
                 FROM Lancamentos
-                WHERE MONTH(DataEmissao) = MONTH(CURDATE()) 
+                WHERE MONTH(DataEmissao) = MONTH(CURDATE())
                   AND YEAR(DataEmissao) = YEAR(CURDATE())";
 
                 return await conn.QueryFirstOrDefaultAsync(sql);
             }
         }
 
-        public async Task<IEnumerable<GastosCategoriaDTO>> ObterGastosPorCategoria(string usuarioId)
+        // Distribuição por categoria: cada lançamento contribui uma única vez.
+        // Para notas com itens, rateia o valor pago (incluindo descontos)
+        // proporcionalmente ao valor bruto de cada item.
+        public async Task<IEnumerable<GastosCategoriaDTO>> ObterGastosPorCategoria(
+            string usuarioId,
+            int mes,
+            int ano)
         {
             using var conn = Connection;
 
-            // 🎯 ARQUITETURA UNIFICADA MENSAL: Itens de Notas + Lançamentos Manuais Diretos
             const string sql = @"
-            SELECT 
-                Dados.Categoria,
-                SUM(Dados.Valor) as Valor
-            FROM (
-                -- 1. BUSCA ITENS GRANULARES (De Notas Fiscais processadas no mês atual)
-                SELECT 
-                    CASE 
-                        WHEN LOWER(i.Categoria) IN ('mercearia') THEN 'Mercearia'
-                        WHEN LOWER(i.Categoria) IN ('laticínios e frios', 'laticinios e frios') THEN 'Laticínios e Frios'
-                        WHEN LOWER(i.Categoria) IN ('snacks e doces') THEN 'Snacks e Doces'
-                        WHEN LOWER(i.Categoria) IN ('padaria') THEN 'Padaria'
-                        WHEN LOWER(i.Categoria) IN ('acougue', 'açougue') THEN 'Açougue'
-                        WHEN LOWER(i.Categoria) IN ('bebidas') THEN 'Bebidas'
-                        WHEN LOWER(i.Categoria) IN ('limpeza') THEN 'Limpeza'
-                        WHEN LOWER(i.Categoria) IN ('higiene e saúde', 'higiene e saude', 'higiene') THEN 'Higiene'
-                        WHEN LOWER(i.Categoria) IN ('farmácia', 'farmacia') THEN 'Farmácia'
-                        WHEN LOWER(i.Categoria) IN ('hortifruti') THEN 'Hortifruti'
-                        WHEN LOWER(i.Categoria) IN ('pet shop', 'petshop') THEN 'Pet Shop'
-                        WHEN LOWER(i.Categoria) IN ('automóvel', 'automovel', 'estacionamento', 'transporte') THEN 'Automóvel'
-                        WHEN LOWER(i.Categoria) IN ('suplementos') THEN 'Suplementos'
-                        WHEN LOWER(i.Categoria) IN ('lazer') THEN 'Lazer'
-                        WHEN LOWER(i.Categoria) IN ('educação', 'educacao') THEN 'Educação'
-                        WHEN LOWER(i.Categoria) IN ('roupas') THEN 'Roupas'
-                        ELSE 'Geral'
-                    END as Categoria,
-                    (i.Preco * i.Quantidade) as Valor,
-                    l_filho.UsuarioId
-                FROM ItensLancamento i
-                INNER JOIN lancamentos l_filho ON i.LancamentoId = l_filho.Id
-                WHERE MONTH(l_filho.DataEmissao) = MONTH(CURDATE())
-                  AND YEAR(l_filho.DataEmissao) = YEAR(CURDATE())
-                  AND LOWER(TRIM(l_filho.Tipo)) = 'despesa'
-                  AND LOWER(i.Categoria) NOT IN ('supermercado')
+                SELECT
+                    Dados.Categoria,
+                    ROUND(SUM(Dados.Valor), 2) AS Valor
+                FROM (
+                    -- Lançamentos com itens: rateio proporcional do valor pago.
+                    SELECT
+                        COALESCE(
+                            NULLIF(TRIM(cItem.Nome), ''),
+                            NULLIF(TRIM(i.Categoria), ''),
+                            'Geral'
+                        ) AS Categoria,
+                        CASE
+                            WHEN totais.TotalBruto > 0 THEN
+                                ABS(l.Valor) * ABS(i.Preco * i.Quantidade) / totais.TotalBruto
+                            ELSE 0
+                        END AS Valor
+                    FROM ItensLancamento i
+                    INNER JOIN Lancamentos l ON l.Id = i.LancamentoId
+                    INNER JOIN (
+                        SELECT LancamentoId,
+                               SUM(ABS(Preco * Quantidade)) AS TotalBruto
+                        FROM ItensLancamento
+                        GROUP BY LancamentoId
+                    ) totais ON totais.LancamentoId = l.Id
+                    LEFT JOIN Categorias cItem
+                        ON cItem.Id = i.CategoriaId
+                       AND cItem.UsuarioId = l.UsuarioId
+                    WHERE l.DataEmissao >= @Inicio
+                      AND l.DataEmissao < @Fim
+                      AND LOWER(TRIM(l.Tipo)) = 'despesa'
+                      AND l.UsuarioId = @UsuarioId
 
-                UNION ALL
+                    UNION ALL
 
-                -- 2. BUSCA LANÇAMENTOS DIRETOS (Manuais como Açougue, Educação, Estacionamento ou Notas Fechadas)
-                SELECT 
-                    CASE 
-                        WHEN LOWER(TRIM(c_pai.Nome)) IN ('automóvel', 'automovel', 'estacionamento', 'transporte') THEN 'Automóvel'
-        
-        -- 🎯 Força o mapeamento correto caso haja divergência de escrita no banco
-        WHEN LOWER(TRIM(c_pai.Nome)) IN ('açougue', 'acougue') THEN 'Açougue'
-        WHEN LOWER(TRIM(c_pai.Nome)) IN ('educação', 'educacao') THEN 'Educação'
-        WHEN LOWER(TRIM(c_pai.Nome)) IN ('farmácia', 'farmacia') THEN 'Farmácia'
-                   ELSE c_pai.Nome
-    END as Categoria,
-    l.Valor as Valor,
-    l.UsuarioId
-FROM lancamentos l
-INNER JOIN categorias c_pai ON l.CategoriaId = c_pai.Id
-WHERE MONTH(l.DataEmissao) = MONTH(CURDATE())
-  AND YEAR(l.DataEmissao) = YEAR(CURDATE())
-  AND LOWER(TRIM(l.Tipo)) = 'despesa'
-  AND (l.Id NOT IN (SELECT DISTINCT LancamentoId FROM ItensLancamento) OR LOWER(c_pai.Nome) = 'supermercado')
-            ) AS Dados
-            INNER JOIN categorias c ON LOWER(TRIM(c.Nome)) = LOWER(TRIM(Dados.Categoria)) AND c.UsuarioId = Dados.UsuarioId
-            WHERE Dados.UsuarioId = @UsuarioId
-            GROUP BY Dados.Categoria
-            ORDER BY Valor DESC";
+                    -- Lançamentos sem itens: valor total na categoria principal.
+                    SELECT
+                        COALESCE(NULLIF(TRIM(c.Nome), ''), 'Geral') AS Categoria,
+                        ABS(l.Valor) AS Valor
+                    FROM Lancamentos l
+                    LEFT JOIN Categorias c
+                        ON c.Id = l.CategoriaId
+                       AND c.UsuarioId = l.UsuarioId
+                    WHERE l.DataEmissao >= @Inicio
+                      AND l.DataEmissao < @Fim
+                      AND LOWER(TRIM(l.Tipo)) = 'despesa'
+                      AND l.UsuarioId = @UsuarioId
+                      AND NOT EXISTS (
+                          SELECT 1
+                          FROM ItensLancamento i2
+                          WHERE i2.LancamentoId = l.Id
+                      )
+                ) Dados
+                GROUP BY Dados.Categoria
+                HAVING SUM(Dados.Valor) > 0
+                ORDER BY Valor DESC;";
 
-            return await conn.QueryAsync<GastosCategoriaDTO>(sql, new { UsuarioId = usuarioId });
+            var inicio = new DateTime(ano, mes, 1);
+            var fim = inicio.AddMonths(1);
+
+            return await conn.QueryAsync<GastosCategoriaDTO>(sql, new
+            {
+                UsuarioId = usuarioId,
+                Inicio = inicio,
+                Fim = fim
+            });
         }
 
         public async Task<IEnumerable<GastosAnuaisCategoriaDTO>> ObterGastosAnuaisComMetas(string usuarioId)
         {
             using var conn = Connection;
 
-            // 🎯 QUERY ANUAL BLINDADA: Traz lançamentos manuais e itens de notas agrupados perfeitamente por ID
             const string sql = @"
-    SELECT 
-        Dados.Categoria,
-        SUM(Dados.Valor) as ValorGastoAno,
-        MAX(Dados.MetaMensalBase) as MetaMensalBase
-    FROM (
-        -- 1. BUSCA ITENS GRANULARES (Apenas de Notas Fiscais/PDFs do ano atual)
-        SELECT 
-            CASE 
-                WHEN LOWER(TRIM(i.Categoria)) IN ('mercearia') THEN 'Mercearia'
-                WHEN LOWER(TRIM(i.Categoria)) IN ('laticínios e frios', 'laticinios e frios') THEN 'Laticínios e Frios'
-                WHEN LOWER(TRIM(i.Categoria)) IN ('snacks e doces') THEN 'Snacks e Doces'
-                WHEN LOWER(TRIM(i.Categoria)) IN ('padaria') THEN 'Padaria'
-                WHEN LOWER(TRIM(i.Categoria)) IN ('acougue', 'açougue') THEN 'Açougue'
-                WHEN LOWER(TRIM(i.Categoria)) IN ('bebidas') THEN 'Bebidas'
-                WHEN LOWER(TRIM(i.Categoria)) IN ('limpeza') THEN 'Limpeza'
-                WHEN LOWER(TRIM(i.Categoria)) IN ('higiene e saúde', 'higiene e saude', 'higiene') THEN 'Higiene'
-                WHEN LOWER(TRIM(i.Categoria)) IN ('farmácia', 'farmacia') THEN 'Farmácia'
-                WHEN LOWER(TRIM(i.Categoria)) IN ('hortifruti') THEN 'Hortifruti'
-                WHEN LOWER(TRIM(i.Categoria)) IN ('pet shop', 'petshop') THEN 'Pet Shop'
-                WHEN LOWER(TRIM(i.Categoria)) IN ('automóvel', 'automovel', 'estacionamento', 'transporte') THEN 'Automóvel'
-                WHEN LOWER(TRIM(i.Categoria)) IN ('suplementos') THEN 'Suplementos'
-                WHEN LOWER(TRIM(i.Categoria)) IN ('lazer') THEN 'Lazer'
-                WHEN LOWER(TRIM(i.Categoria)) IN ('educação', 'educacao') THEN 'Educação'
-                WHEN LOWER(TRIM(i.Categoria)) IN ('roupas') THEN 'Roupas'
-                ELSE 'Geral'
-            END as Categoria,
-            (i.Preco * i.Quantidade) as Valor,
-            l_filho.UsuarioId,
-            c_filho.MetaMensal as MetaMensalBase
-        FROM ItensLancamento i
-        INNER JOIN lancamentos l_filho ON i.LancamentoId = l_filho.Id
-        LEFT JOIN categorias c_filho ON l_filho.CategoriaId = c_filho.Id
-        WHERE YEAR(l_filho.DataEmissao) = YEAR(CURDATE())
-          AND LOWER(TRIM(l_filho.Tipo)) = 'despesa'
-          AND LOWER(TRIM(i.Categoria)) NOT IN ('supermercado')
+        SELECT
+            Dados.Categoria,
+            SUM(Dados.Valor) AS ValorGastoAno,
+            MAX(Dados.MetaMensalBase) AS MetaMensalBase
+        FROM
+        (
+            -- =====================================================
+            -- 1. ITENS DAS NOTAS IMPORTADAS
+            -- =====================================================
+            SELECT
+                CASE
+                    WHEN LOWER(TRIM(i.Categoria)) = 'mercearia'
+                        THEN 'Mercearia'
 
-        UNION ALL
+                    WHEN LOWER(TRIM(i.Categoria)) IN
+                        ('laticínios e frios', 'laticinios e frios', 'laticínios', 'laticinios')
+                        THEN 'Laticínios e Frios'
 
-        -- 2. BUSCA LANÇAMENTOS MANUAIS DIRETOS (Tabela Pai)
-        SELECT 
-            CASE 
-                WHEN LOWER(TRIM(c_pai.Nome)) IN ('automóvel', 'automovel', 'estacionamento', 'transporte') THEN 'Automóvel'
-                WHEN LOWER(TRIM(c_pai.Nome)) IN ('açougue', 'acougue') THEN 'Açougue'
-                WHEN LOWER(TRIM(c_pai.Nome)) IN ('educação', 'educacao') THEN 'Educação'
-                WHEN LOWER(TRIM(c_pai.Nome)) IN ('farmácia', 'farmacia') THEN 'Farmácia'
-                ELSE c_pai.Nome
-            END as Categoria,
-            l.Valor as Valor,
-            l.UsuarioId,
-            c_pai.MetaMensal as MetaMensalBase
-        FROM lancamentos l
-        INNER JOIN categorias c_pai ON l.CategoriaId = c_pai.Id
-        WHERE YEAR(l.DataEmissao) = YEAR(CURDATE())
-          AND LOWER(TRIM(l.Tipo)) = 'despesa'
-          -- Garante que não duplica notas fiscais que já têm filhos, mas lê perfeitamente os manuais puros
-          AND (l.Id NOT IN (SELECT DISTINCT LancamentoId FROM ItensLancamento) OR LOWER(TRIM(c_pai.Nome)) = 'supermercado')
-    ) AS Dados
-    WHERE Dados.UsuarioId = @UsuarioId
-    GROUP BY Dados.Categoria
-    ORDER BY ValorGastoAno DESC";
+                    WHEN LOWER(TRIM(i.Categoria)) IN
+                        ('snacks e doces', 'snacks', 'doces')
+                        THEN 'Snacks e Doces'
 
-            return await conn.QueryAsync<GastosAnuaisCategoriaDTO>(sql, new { UsuarioId = usuarioId });
+                    WHEN LOWER(TRIM(i.Categoria)) = 'padaria'
+                        THEN 'Padaria'
+
+                    WHEN LOWER(TRIM(i.Categoria)) IN
+                        ('açougue', 'acougue')
+                        THEN 'Açougue'
+
+                    WHEN LOWER(TRIM(i.Categoria)) = 'bebidas'
+                        THEN 'Bebidas'
+
+                    WHEN LOWER(TRIM(i.Categoria)) = 'limpeza'
+                        THEN 'Limpeza'
+
+                    WHEN LOWER(TRIM(i.Categoria)) IN
+                        ('higiene e saúde', 'higiene e saude', 'higiene')
+                        THEN 'Higiene e Saúde'
+
+                    WHEN LOWER(TRIM(i.Categoria)) IN
+                        ('farmácia', 'farmacia')
+                        THEN 'Farmácia'
+
+                    WHEN LOWER(TRIM(i.Categoria)) = 'hortifruti'
+                        THEN 'Hortifruti'
+
+                    WHEN LOWER(TRIM(i.Categoria)) IN
+                        ('pet shop', 'petshop')
+                        THEN 'Pet Shop'
+
+                    WHEN LOWER(TRIM(i.Categoria)) IN
+                        ('automóvel', 'automovel', 'estacionamento', 'transporte')
+                        THEN 'Automóvel'
+
+                    WHEN LOWER(TRIM(i.Categoria)) = 'suplementos'
+                        THEN 'Suplementos'
+
+                    WHEN LOWER(TRIM(i.Categoria)) = 'lazer'
+                        THEN 'Lazer'
+
+                    WHEN LOWER(TRIM(i.Categoria)) IN
+                        ('educação', 'educacao')
+                        THEN 'Educação'
+
+                    WHEN LOWER(TRIM(i.Categoria)) = 'roupas'
+                        THEN 'Roupas'
+
+                    ELSE 'Geral'
+                END AS Categoria,
+
+                ABS(i.Preco * i.Quantidade) AS Valor,
+
+                l.UsuarioId,
+
+                COALESCE(cItem.MetaMensal, 0) AS MetaMensalBase
+
+            FROM ItensLancamento i
+
+            INNER JOIN Lancamentos l
+                ON i.LancamentoId = l.Id
+
+            LEFT JOIN Categorias cItem
+                ON LOWER(TRIM(cItem.Nome)) =
+                   LOWER(TRIM(i.Categoria))
+                AND cItem.UsuarioId = l.UsuarioId
+
+            WHERE
+                YEAR(l.DataEmissao) = YEAR(CURDATE())
+                AND LOWER(TRIM(l.Tipo)) = 'despesa'
+                AND l.UsuarioId = @UsuarioId
+
+            UNION ALL
+
+            -- =====================================================
+            -- 2. LANÇAMENTOS MANUAIS SEM ITENS
+            -- =====================================================
+            SELECT
+                CASE
+                    WHEN LOWER(TRIM(c.Nome)) IN
+                        ('automóvel', 'automovel', 'transporte')
+                        THEN 'Automóvel'
+
+                    WHEN LOWER(TRIM(c.Nome)) = 'estacionamento'
+                        THEN 'Estacionamento'
+
+                    WHEN LOWER(TRIM(c.Nome)) IN
+                        ('açougue', 'acougue')
+                        THEN 'Açougue'
+
+                    WHEN LOWER(TRIM(c.Nome)) IN
+                        ('educação', 'educacao')
+                        THEN 'Educação'
+
+                    WHEN LOWER(TRIM(c.Nome)) IN
+                        ('farmácia', 'farmacia')
+                        THEN 'Farmácia'
+
+                    WHEN LOWER(TRIM(c.Nome)) IN
+                        ('higiene e saúde', 'higiene e saude', 'higiene')
+                        THEN 'Higiene e Saúde'
+
+                    ELSE c.Nome
+                END AS Categoria,
+
+                ABS(l.Valor) AS Valor,
+
+                l.UsuarioId,
+
+                COALESCE(c.MetaMensal, 0) AS MetaMensalBase
+
+            FROM Lancamentos l
+
+            INNER JOIN Categorias c
+                ON l.CategoriaId = c.Id
+
+            WHERE
+                YEAR(l.DataEmissao) = YEAR(CURDATE())
+                AND LOWER(TRIM(l.Tipo)) = 'despesa'
+                AND l.UsuarioId = @UsuarioId
+
+                AND NOT EXISTS
+                (
+                    SELECT 1
+                    FROM ItensLancamento i2
+                    WHERE i2.LancamentoId = l.Id
+                )
+
+        ) AS Dados
+
+        GROUP BY Dados.Categoria
+
+        ORDER BY ValorGastoAno DESC;
+    ";
+
+            return await conn.QueryAsync<GastosAnuaisCategoriaDTO>(
+                sql,
+                new
+                {
+                    UsuarioId = usuarioId
+                }
+            );
         }
     }
 }

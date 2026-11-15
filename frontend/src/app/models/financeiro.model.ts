@@ -25,16 +25,16 @@ export interface Lancamento {
   id?: number;
   descricao: string;
   valor: number;
+  subtotal?: number | null;
+  desconto?: number | null;
   tipo: string;
   data: string | Date;
   dataEmissao: string | Date;
   dataImportacao: string | Date;
   categoriaId: number;
-  
-  // 🔥 ADICIONE ESTA LINHA: 
-  // É ela que permite usar item.categoria?.nome no HTML
-  categoria?: Categoria; 
-  
+
+  categoriaRef?: Categoria;
+
   usuarioId?: string;
-  itens?: ItemCompra[]; // Ajustado de any[] para usar sua interface ItemCompra
+  itens?: ItemCompra[];
 }

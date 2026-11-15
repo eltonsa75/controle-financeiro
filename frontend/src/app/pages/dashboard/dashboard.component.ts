@@ -32,6 +32,8 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   chart: any;
   chartCaros: any;
   chartEvolucao: any;
+  categoriasCarregando = false;
+  categoriasMensagem = "";
 
   mesSelecionado: number = new Date().getMonth() + 1;
   anoSelecionado: number = new Date().getFullYear();
@@ -84,7 +86,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
       this.mesSelecionado = 12;
       this.anoSelecionado--;
     }
-    
+
     this.carregarDadosMensais();
   }
 
@@ -98,7 +100,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     this.financeiroService.getResumoMensal(this.mesSelecionado, this.anoSelecionado).subscribe({
       next: (resposta: ResumoMensalResponse) => {
         this.totalReceitas = resposta.receitas || 0;
-        this.totalDespesas = Math.abs(resposta.despesas || 0); 
+        this.totalDespesas = Math.abs(resposta.despesas || 0);
         this.saldoMes = resposta.saldo || 0;
         this.saldoAcumulado = resposta.saldoAcumulado || 0;
         this.receitasTotal = resposta.receitasTotal || 0;
@@ -203,57 +205,107 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   }
 
   carregarGraficoCategorias(): void {
-    this.financeiroService.getGastosPorCategoria().subscribe({
-      next: (dadosDoBanco: any[]) => {
-        if (!this.canvasRef?.nativeElement || !dadosDoBanco || dadosDoBanco.length === 0) return;
-        if (this.chart) this.chart.destroy();
+    this.categoriasCarregando = true;
+    this.categoriasMensagem = '';
+
+
+    this.financeiroService.getGastosPorCategoria(
+  this.mesSelecionado,
+  this.anoSelecionado
+
+).subscribe({
+      next: (resposta: unknown) => {
+        this.categoriasCarregando = false;
+        console.log('[Dashboard] Resposta de gastos por categoria:', resposta);
+
+        if (this.chart) {
+          this.chart.destroy();
+          this.chart = null;
+        }
+
+        if (!Array.isArray(resposta)) {
+          this.categoriasMensagem = 'Formato de resposta inesperado. Verifique a API de categorias.';
+          return;
+        }
+
+        const dados = resposta
+          .map((item: any) => ({
+            categoria: String(item?.categoria ?? item?.Categoria ?? '').trim(),
+            valor: Number(item?.valor ?? item?.Valor ?? 0)
+          }))
+          .filter(item => item.categoria && Number.isFinite(item.valor) && item.valor > 0);
+
+        if (dados.length === 0) {
+          this.categoriasMensagem = 'Nenhuma despesa por categoria encontrada.';
+          return;
+        }
+
+        if (!this.canvasRef?.nativeElement) {
+          this.categoriasMensagem = 'Não foi possível localizar o gráfico de categorias.';
+          return;
+        }
 
         this.chart = new Chart(this.canvasRef.nativeElement, {
           type: 'doughnut',
           data: {
-            labels: dadosDoBanco.map(d => d.categoria),
+            labels: dados.map(d => d.categoria),
             datasets: [{
-              data: dadosDoBanco.map(d => d.valor),
+              data: dados.map(d => d.valor),
               backgroundColor: CORES_PALETA,
               borderWidth: 2,
               borderColor: '#ffffff'
             }]
           },
-          options: { 
+          options: {
             responsive: true,
             maintainAspectRatio: false,
-            plugins: { 
+            plugins: {
               legend: {
-                position: 'right', // Joga as legendas para a direita na vertical, impedindo o achatamento da rosca
-                labels: {
-                  boxWidth: 12,
-                  padding: 12,
-                  font: { size: 11, weight: 500 },
-                  color: '#4b5563'
+                position: 'right',
+                labels: { boxWidth: 12, padding: 12, font: { size: 11 }, color: '#4b5563' }
+              },
+              tooltip: {
+                callbacks: {
+                  label: (context: any) =>
+                    `${context.label}: ${this.formatarMoeda(Number(context.raw))}`
                 }
               },
-              datalabels: { 
+              datalabels: {
                 display: true,
-                // Mostra apenas valores significativos no gráfico para não amontoar números pequenos
                 formatter: (value: number, context: any) => {
-                  const dataset = context.dataset.data;
-                  const total = dataset.reduce((acc: number, val: number) => acc + val, 0);
-                  const percentual = (value / total) * 100;
-                  return percentual > 4 ? `R$ ${value.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}` : '';
+                  const valores = context.dataset.data as number[];
+                  const total = valores.reduce((acc, atual) => acc + Number(atual), 0);
+                  return total > 0 && (value / total) * 100 > 4
+                    ? this.formatarMoeda(value) : '';
                 },
                 backgroundColor: 'rgba(255,255,255,0.85)',
                 borderRadius: 4,
                 padding: 4,
                 color: '#1f2937',
                 font: { weight: 'bold', size: 10 }
-              } 
-            } 
+              }
+            }
           }
         });
       },
-      error: (err: any) => console.error('Erro ao carregar gráfico por categorias:', err)
+      error: (err: any) => {
+        this.categoriasCarregando = false;
+        this.categoriasMensagem = 'Erro ao consultar categorias. Verifique o console.';
+        if (this.chart) {
+          this.chart.destroy();
+          this.chart = null;
+        }
+        console.error('[Dashboard] Erro ao carregar categorias:', err);
+      }
     });
+
+    console.log(
+  '[DEBUG DASHBOARD] Consultando categorias:',
+  this.mesSelecionado,
+  this.anoSelecionado
+);
   }
+
 
   carregarGraficoMaisCaros(): void {
     this.financeiroService.getItensMaisCaros(this.mesSelecionado, this.anoSelecionado).subscribe({

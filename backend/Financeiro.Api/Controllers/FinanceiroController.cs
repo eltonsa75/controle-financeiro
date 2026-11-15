@@ -4,6 +4,7 @@ using Financeiro.Api.Models.DTO;
 using Financeiro.Api.Repositories;
 using FinanceiroApi.Data;
 using FinanceiroApi.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -11,6 +12,7 @@ namespace Financeiro.Api.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class FinanceiroController : ControllerBase
     {
         private readonly AppDbContext _context;
@@ -26,9 +28,11 @@ namespace Financeiro.Api.Controllers
         private string ObterUserId()
         {
             var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
-                         ?? User.FindFirst("id")?.Value;
+                         ?? User.FindFirst("sub")?.Value
+                       ?? User.FindFirst("user_id")?.Value
+                       ?? User.FindFirst("id")?.Value;
 
-            return string.IsNullOrEmpty(userId) ? "admin-001" : userId;
+            return !string.IsNullOrWhiteSpace(userId) ? userId : throw new UnauthorizedAccessException("UID do Firebase não encontrado no token autenticado.");
         }
 
         // --- ENDPOINTS PARA OS CARDS DE KPI (CORRIGIDO) ---
@@ -197,25 +201,55 @@ namespace Financeiro.Api.Controllers
         }
 
         // --- ENDPOINTS PARA OS GRÁFICOS ANALÍTICOS ---
-        // 🎯 Localize o endpoint na linha 206. Ele deve ser parecido com isso:
+
         [HttpGet("gastos-categoria")]
-        public async Task<IActionResult> GetGastosCategoria()
+        public async Task<IActionResult> GetGastosCategoria(
+            [FromQuery] int? mes,
+            [FromQuery] int? ano)
         {
             try
             {
-                // 1. Captura o ID do usuário logado de forma dinâmica (ou usa o seu ID fixo de testes se não estiver usando autenticação JWT ainda)
-                var usuarioId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
-                             ?? User.FindFirst("id")?.Value
-                             ?? "PiGS3DH27AaUiLdNhnw9AiedMpm2"; // 🎯 Fallback de segurança com o seu ID do banco
+                // Captura o usuário logado
+                var usuarioId = ObterUserId();
 
-                // 2. Passa o usuarioId que o repositório agora exige como argumento!
-                var dados = await _repository.ObterGastosPorCategoria(usuarioId);
+                // Se mês/ano não forem informados,
+                // utiliza o período atual
+                int mesFiltro = mes ?? DateTime.Now.Month;
+                int anoFiltro = ano ?? DateTime.Now.Year;
+
+                // Validação do mês
+                if (mesFiltro < 1 || mesFiltro > 12)
+                {
+                    return BadRequest(new
+                    {
+                        mensagem = "Mês inválido."
+                    });
+                }
+
+                // Validação do ano
+                if (anoFiltro < 2000 || anoFiltro > 2100)
+                {
+                    return BadRequest(new
+                    {
+                        mensagem = "Ano inválido."
+                    });
+                }
+
+                var dados =
+                    await _repository.ObterGastosPorCategoria(
+                        usuarioId,
+                        mesFiltro,
+                        anoFiltro
+                    );
 
                 return Ok(dados);
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Erro interno: {ex.Message}");
+                return StatusCode(
+                    500,
+                    $"Erro interno: {ex.Message}"
+                );
             }
         }
 

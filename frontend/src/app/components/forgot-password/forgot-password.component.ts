@@ -39,17 +39,17 @@ export class ForgotPasswordComponent {
 
       try {
         await sendPasswordResetEmail(this.auth, this.forgotForm.value.email, actionCodeSettings);
-        
+
         // Ativa o estado de sucesso e define a mensagem para o usuário
         this.isSucesso = true;
         this.mensagem = 'Sucesso! Um link de recuperação foi enviado para o seu e-mail.';
-        
+
         // Limpa o campo de e-mail após o envio bem-sucedido
         this.forgotForm.reset();
-        
+
       } catch (error: any) {
         this.isSucesso = false;
-        
+
         // Tratamento de erros comuns do Firebase
         if (error.code === 'auth/user-not-found') {
           this.mensagem = 'Este e-mail não está cadastrado no sistema.';

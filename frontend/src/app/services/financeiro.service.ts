@@ -4,19 +4,21 @@ import { catchError, Observable, throwError } from 'rxjs';
 import { Lancamento } from '../models/financeiro.model';
 import { GastosCategoria } from '../models/gastos-categoria.model';
 // No topo do arquivo financeiro.service.ts, adicione:
-import { Categoria } from '../models/financeiro.model'; // Ajuste o caminho conforme necessário
+import { Categoria } from '../models/financeiro.model';
+
+import { environment } from '../../environments/environment';
 
 export interface CategoriaStatus {
-  id: number; // Mude de 'number | undefined' para apenas 'number'
+  id: number;
   nome: string;
   corHex: string;
-  ordem?: number; // O '?' aqui torna o campo opcional, não quebra nada existente
+  ordem?: number;
 }
 
 export interface ItemCaro {
   descricao: string;
   valorTotal: number;
-  local?: string; 
+  local?: string;
 }
 
 export interface DadosEvolucao {
@@ -60,20 +62,28 @@ export interface GastosAnuaisCategoria {
   providedIn: 'root'
 })
 export class FinanceiroService {
-  private apiUrl = 'http://localhost:5037/api/Lancamentos';
-  private apiUrl2 = 'http://localhost:5037/api/Financeiro';
-  
+private apiUrl = `${environment.apiUrl}/Lancamentos`;
+//private apiUrl2 = `${environment.apiUrl}/Financeiro`;
+
 
   constructor(private http: HttpClient) { }
 
-  listarCategorias(): Observable<any[]> {
+ listarCategorias(): Observable<any[]> {
+    const token = localStorage.getItem('token');
+    const headers = new HttpHeaders({
+      'Authorization': `Bearer ${token}`
+    });
     const urlCategorias = this.apiUrl.replace('/Lancamentos', '/Categorias');
-    return this.http.get<any[]>(urlCategorias);
+    return this.http.get<any[]>(urlCategorias, { headers });
   }
 
   salvarCategoria(categoria: any): Observable<any> {
+    const token = localStorage.getItem('token');
+    const headers = new HttpHeaders({
+      'Authorization': `Bearer ${token}`
+    });
     const urlCategorias = this.apiUrl.replace('/Lancamentos', '/Categorias');
-    return this.http.post<any>(urlCategorias, categoria);
+    return this.http.post<any>(urlCategorias, categoria, { headers });
   }
 
   // --- MÉTODOS DE CONSULTA (BI) CORRIGIDOS ---
@@ -106,8 +116,8 @@ export class FinanceiroService {
   }
 
   getLancamentos(): Observable<any[]> {
-    const token = localStorage.getItem('token'); 
-    const urlFinal = `${this.apiUrl}`; 
+    const token = localStorage.getItem('token');
+    const urlFinal = `${this.apiUrl}`;
 
     const headers = new HttpHeaders({
       'Authorization': `Bearer ${token}`
@@ -135,15 +145,27 @@ export class FinanceiroService {
       })
     );
   }
-  
-  getGastosPorCategoria(): Observable<GastosCategoria[]> {
-    return this.http.get<GastosCategoria[]>(`${this.apiUrl}/gastos-categoria`).pipe(
-      catchError(err => {
-        console.error('Erro ao carregar gastos por categoria:', err);
-        return throwError(() => err);
-      })
-    );
-  }
+
+getGastosPorCategoria(
+  mes: number,
+  ano: number
+
+): Observable<GastosCategoria[]> {
+
+  const params = new HttpParams()
+    .set('mes', mes.toString())
+    .set('ano', ano.toString());
+
+  return this.http.get<GastosCategoria[]>(
+    `${this.apiUrl}/gastos-categoria`,
+    { params }
+  ).pipe(
+    catchError(err => {
+      console.error('Erro ao carregar gastos por categoria:', err);
+      return throwError(() => err);
+    })
+  );
+}
 
   // 🎯 NOVO MÉTODO: Consome os dados consolidados do Ano de 2026 com metas * 12
   getGastosAnuaisPorCategoria(): Observable<GastosAnuaisCategoria[]> {
@@ -190,9 +212,14 @@ export class FinanceiroService {
   }
 
   // 🎯 NOVO MÉTODO PARA PERSISTIR A ORDEM DO DRAG AND DROP
-  atualizarOrdemCategorias(categorias: Categoria[]): Observable<any> {
+atualizarOrdemCategorias(categorias: Categoria[]): Observable<any> {
+    const token = localStorage.getItem('token');
+    const headers = new HttpHeaders({
+      'Authorization': `Bearer ${token}`
+    });
+
     const urlCategorias = this.apiUrl.replace('/Lancamentos', '/Categorias');
-    return this.http.put(`${urlCategorias}/ordenar`, categorias).pipe(
+    return this.http.put(`${urlCategorias}/ordenar`, categorias, { headers }).pipe(
       catchError(err => {
         console.error('Erro ao atualizar ordem das categorias:', err);
         return throwError(() => err);

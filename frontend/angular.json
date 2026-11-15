@@ -1,9 +1,10 @@
+
 {
   "$schema": "./node_modules/@angular/cli/lib/config/schema.json",
   "version": 1,
   "newProjectRoot": "projects",
   "projects": {
-    "financeiro-app": {
+    "carrinho-certo-app": {
       "projectType": "application",
       "schematics": {},
       "root": "",
@@ -13,7 +14,7 @@
         "build": {
           "builder": "@angular-devkit/build-angular:application",
           "options": {
-            "outputPath": "dist/financeiro-app",
+            "outputPath": "dist/carrinho-certo-app",
             "index": "src/index.html",
             "browser": "src/main.ts",
             "polyfills": [
@@ -24,13 +25,19 @@
               "src/favicon.ico",
               "src/assets"
             ],
-            "styles": [              
+            "styles": [
               "src/styles.css"
             ],
             "scripts": []
           },
           "configurations": {
             "production": {
+              "fileReplacements": [
+                {
+                  "replace": "src/environments/environment.ts",
+                  "with": "src/environments/environment.production.ts"
+                }
+              ],
               "budgets": [
                 {
                   "type": "initial",
@@ -63,10 +70,10 @@
           "builder": "@angular-devkit/build-angular:dev-server",
           "configurations": {
             "production": {
-              "buildTarget": "financeiro-app:build:production"
+              "buildTarget": "carrinho-certo-app:build:production"
             },
             "development": {
-              "buildTarget": "financeiro-app:build:development"
+              "buildTarget": "carrinho-certo-app:build:development"
             }
           },
           "defaultConfiguration": "development"

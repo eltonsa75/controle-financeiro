@@ -1,6 +1,6 @@
 <div class="main-container">
   <div class="login-box">
-    
+
     <div class="purple-panel">
       <svg class="bg-pattern" viewBox="0 0 500 500" xmlns="http://www.w3.org/2000/svg">
         <path fill="rgba(255,255,255,0.05)" d="M150,50 C200,100 100,150 150,200 S300,300 250,350 S100,450 150,500" />
@@ -11,7 +11,7 @@
         <circle cx="280" cy="180" r="8" stroke="rgba(255,255,255,0.3)" stroke-width="2" fill="none"/>
         <circle cx="100" cy="400" r="8" stroke="rgba(255,255,255,0.3)" stroke-width="2" fill="none"/>
       </svg>
-      
+
       <div class="welcome-text">
       <h1>Bem-vindo de volta!</h1>
       <p>Sua gestão financeira em um só lugar. Entre para continuar acompanhando seus lançamentos e automatizando seus processos.</p>
@@ -20,24 +20,24 @@
 
     <div class="form-panel">
       <h2>Login</h2>
-      
+
       <form (ngSubmit)="onSubmit()">
-        
+
         <div class="input-group">
           <i class="pi pi-user input-icon"></i>
-          <input type="email" 
-                 name="email" 
-                 [(ngModel)]="email" 
-                 required 
+          <input type="email"
+                 name="email"
+                 [(ngModel)]="email"
+                 required
                  placeholder="Username or email">
         </div>
 
         <div class="input-group">
           <i class="pi pi-lock input-icon"></i>
-          <input type="password" 
-                 name="senha" 
-                 [(ngModel)]="senha" 
-                 required 
+          <input type="password"
+                 name="senha"
+                 [(ngModel)]="senha"
+                 required
                  placeholder="Password">
         </div>
 
@@ -52,11 +52,11 @@
         </div>
 
         <button type="submit" class="btn-sign-in">Fazer login</button>
-        
+
         <p *ngIf="erro" class="error-msg">{{ erro }}</p>
 
         <div class="create-account">
-          <span>Novo por aqui?</span>         
+          <span>Novo por aqui?</span>
           <a routerLink="/cadastro">Crie uma conta</a>
         </div>
       </form>

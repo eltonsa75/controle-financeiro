@@ -7,7 +7,7 @@ import { Pipe, PipeTransform } from '@angular/core';
 export class SortPipe implements PipeTransform {
   transform(array: any[], field: string): any[] {
     if (!array) return [];
-    
+
     return [...array].sort((a, b) => {
       const valA = a[field].toLowerCase();
       const valB = b[field].toLowerCase();

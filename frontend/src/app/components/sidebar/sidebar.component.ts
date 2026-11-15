@@ -2,7 +2,7 @@ import { Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule, Router } from '@angular/router';
 // Importe seu serviço de autenticação (ajuste o caminho se necessário)
-import { AuthService } from '../../services/auth.service'; 
+import { AuthService } from '../../services/auth.service';
 
 @Component({
   selector: 'app-sidebar',
@@ -18,11 +18,11 @@ export class SidebarComponent {
 
   logout(): void {
     // 1. Limpa o token/sessão no seu serviço
-    this.authService.logout(); 
-    
+    this.authService.logout();
+
     // 2. Manda o usuário de volta para a tela de login roxa
     this.router.navigate(['/login']);
-    
+
     console.log('Usuário deslogado com sucesso.');
   }
 }

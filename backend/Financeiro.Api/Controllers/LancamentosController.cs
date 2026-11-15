@@ -2,6 +2,7 @@
 using Financeiro.Api.Models.DTO;
 using Financeiro.Api.Repositories;
 using FinanceiroApi.Data;
+using FinanceiroApi.Models;
 using FinanceiroApi.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -13,6 +14,7 @@ namespace FinanceiroApi.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class LancamentosController : ControllerBase
     {
         private readonly AppDbContext _context;
@@ -30,9 +32,11 @@ namespace FinanceiroApi.Controllers
         private string ObterUserId()
         {
             var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
-                         ?? User.FindFirst("id")?.Value;
+                       ?? User.FindFirst("sub")?.Value
+                       ?? User.FindFirst("user_id")?.Value
+                       ?? User.FindFirst("id")?.Value;
 
-            return string.IsNullOrEmpty(userId) ? "admin-001" : userId;
+            return !string.IsNullOrWhiteSpace(userId) ? userId : throw new UnauthorizedAccessException("UID do Firebase não encontrado no token autenticado.");
         }
 
         // GET: api/Lancamentos
@@ -45,9 +49,9 @@ namespace FinanceiroApi.Controllers
                 Console.WriteLine($"[DEBUG] Buscando lançamentos para o usuário: {userId}");
 
                 var lancamentos = await _context.Lancamentos
-                    .Include(l => l.Categoria)
+                    .Include(l => l.CategoriaRef)
                     .Include(l => l.Itens)
-                    .Where(x => x.UsuarioId == userId || x.UsuarioId == "admin-001")
+                    .Where(x => x.UsuarioId == userId)
                     .OrderByDescending(x => x.DataEmissao)
                     .ToListAsync();
 
@@ -66,7 +70,7 @@ namespace FinanceiroApi.Controllers
         {
             var lancamento = await _context.Lancamentos
                 .Include(l => l.Itens)
-                .FirstOrDefaultAsync(l => l.Id == id);
+                .FirstOrDefaultAsync(l => l.Id == id && l.UsuarioId == ObterUserId());
 
             if (lancamento == null) return NotFound();
 
@@ -85,7 +89,7 @@ namespace FinanceiroApi.Controllers
 
                 var itens = await _context.ItensLancamento
                     .Include(i => i.Lancamento)
-                    .Where(i => (i.Lancamento.UsuarioId == userId || i.Lancamento.UsuarioId == "admin-001") && i.Lancamento.DataEmissao.Month == mesFiltro && i.Lancamento.DataEmissao.Year == anoFiltro)
+                    .Where(i => (i.Lancamento.UsuarioId == userId) && i.Lancamento.DataEmissao.Month == mesFiltro && i.Lancamento.DataEmissao.Year == anoFiltro)
                     .GroupBy(i => new {
                         i.Descricao,
                         LocalNome = i.Lancamento != null ? i.Lancamento.Descricao : "Local Indefinido"
@@ -113,41 +117,139 @@ namespace FinanceiroApi.Controllers
         public async Task<IActionResult> GetItens(int id)
         {
             var itens = await _context.ItensLancamento
-                .Where(i => i.LancamentoId == id)
+                .Where(i => i.LancamentoId == id && i.Lancamento.UsuarioId == ObterUserId())
                 .AsNoTracking()
                 .ToListAsync();
 
             return Ok(itens);
         }
 
+
+
         // POST: api/Lancamentos
         [HttpPost]
-        public async Task<ActionResult<Lancamento>> PostLancamento(Lancamento lancamento)
+        public async Task<ActionResult<Lancamento>> PostLancamento(
+            [FromBody] Lancamento lancamento)
         {
             try
             {
                 string userId = ObterUserId();
                 lancamento.UsuarioId = userId;
 
+                // 1. Valida a categoria principal
+                bool categoriaExiste = await _context.Categorias
+                    .AnyAsync(c =>
+                        c.Id == lancamento.CategoriaId &&
+                        c.UsuarioId == userId);
+
+                if (!categoriaExiste)
+                {
+                    return BadRequest(new
+                    {
+                        mensagem = "A categoria informada não existe.",
+                        categoriaId = lancamento.CategoriaId
+                    });
+                }
+
+                // 2. Prepara e valida os itens do lançamento
                 if (lancamento.Itens != null)
                 {
                     foreach (var item in lancamento.Itens)
                     {
                         item.UsuarioId = userId;
+
+                        if (item.CategoriaId <= 0)
+                            item.CategoriaId = lancamento.CategoriaId;
+
+                        bool categoriaItemExiste = await _context.Categorias
+                            .AnyAsync(c =>
+                                c.Id == item.CategoriaId &&
+                                c.UsuarioId == userId);
+
+                        if (!categoriaItemExiste)
+                        {
+                            return BadRequest(new
+                            {
+                                mensagem = $"Categoria inválida para o item {item.Descricao}.",
+                                categoriaId = item.CategoriaId
+                            });
+                        }
                     }
                 }
 
-                _context.Lancamentos.Add(lancamento);
-                await _context.SaveChangesAsync();
+                var strategy = _context.Database.CreateExecutionStrategy();
 
-                return CreatedAtAction("GetLancamento", new { id = lancamento.Id }, lancamento);
+                await strategy.ExecuteAsync(async () =>
+                {
+                    await using var transaction =
+                        await _context.Database.BeginTransactionAsync();
+
+                    try
+                    {
+                        // 3. Salva o lançamento e seus itens
+                        _context.Lancamentos.Add(lancamento);
+
+                        await _context.SaveChangesAsync();
+
+                        Console.WriteLine(
+                            $"[LANÇAMENTO] Lançamento #{lancamento.Id} salvo.");
+
+                        // 4. Atualiza o estoque somente para despesas com itens
+                        bool atualizarEstoque =
+                            string.Equals(
+                                lancamento.Tipo?.Trim(),
+                                "Despesa",
+                                StringComparison.OrdinalIgnoreCase)
+                            && lancamento.Itens?.Any() == true;
+
+                        if (atualizarEstoque)
+                        {
+                            await AtualizarEstoqueCompraAsync(lancamento);
+
+                            // 5. Persiste produtos, reativações e movimentações
+                            await _context.SaveChangesAsync();
+
+                            Console.WriteLine(
+                                $"[ESTOQUE] Atualizado pelo lançamento #{lancamento.Id}.");
+                        }
+
+                        // 6. Confirma todas as operações
+                        await transaction.CommitAsync();
+
+                        Console.WriteLine(
+                            $"[SUCESSO] Lançamento #{lancamento.Id} concluído.");
+                    }
+                    catch (Exception ex)
+                    {
+                        await transaction.RollbackAsync();
+
+                        Console.WriteLine(
+                            $"[ERRO TRANSAÇÃO] {ex}");
+
+                        throw;
+                    }
+                });
+
+                return CreatedAtAction(
+                    nameof(GetLancamento),
+                    new { id = lancamento.Id },
+                    lancamento
+                );
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Erro ao salvar lançamento: {ex}");
-                return StatusCode(500, "Erro interno ao salvar lançamento.");
+                Console.WriteLine(
+                    $"[ERRO] POST Lancamentos: {ex}");
+
+                return StatusCode(500, new
+                {
+                    mensagem = "Erro ao salvar lançamento e atualizar estoque."
+                });
             }
         }
+
+
+
 
         // GET: api/Lancamentos/resumo-mensal
         [HttpGet("resumo-mensal")]
@@ -160,7 +262,7 @@ namespace FinanceiroApi.Controllers
                 int anoFiltro = ano ?? DateTime.Now.Year;
 
                 var lancamentosMes = await _context.Lancamentos
-                    .Where(l => (l.UsuarioId == userId || l.UsuarioId == "admin-001") && l.DataEmissao.Month == mesFiltro && l.DataEmissao.Year == anoFiltro)
+                    .Where(l => (l.UsuarioId == userId) && l.DataEmissao.Month == mesFiltro && l.DataEmissao.Year == anoFiltro)
                     .ToListAsync();
 
                 decimal totalReceitas = lancamentosMes
@@ -172,7 +274,7 @@ namespace FinanceiroApi.Controllers
                     .Sum(l => Math.Abs(l.Valor));
 
                 var lancamentosAnteriores = await _context.Lancamentos
-                    .Where(l => (l.UsuarioId == userId || l.UsuarioId == "admin-001") && (l.DataEmissao.Year < anoFiltro || (l.DataEmissao.Year == anoFiltro && l.DataEmissao.Month < mesFiltro)))
+                    .Where(l => (l.UsuarioId == userId) && (l.DataEmissao.Year < anoFiltro || (l.DataEmissao.Year == anoFiltro && l.DataEmissao.Month < mesFiltro)))
                     .ToListAsync();
 
                 decimal receitasAnteriores = lancamentosAnteriores
@@ -212,7 +314,7 @@ namespace FinanceiroApi.Controllers
                 string userId = ObterUserId();
 
                 var todosLancamentos = await _context.Lancamentos
-                    .Where(l => l.UsuarioId == userId || l.UsuarioId == "admin-001")
+                    .Where(l => l.UsuarioId == userId)
                     .ToListAsync();
 
                 if (!todosLancamentos.Any())
@@ -276,33 +378,58 @@ namespace FinanceiroApi.Controllers
             }
         }
 
-       
-        // GET: api/Lancamentos/gastos-categoria
+        // GET: api/Lancamentos/gastos-categoria?mes=5&ano=2026
         [HttpGet("gastos-categoria")]
-        public async Task<IActionResult> GetGastosCategoria()
+        public async Task<IActionResult> ObterGastosPorCategoria(
+            [FromQuery] int? mes,
+            [FromQuery] int? ano)
         {
             try
             {
-                // 1. Usa o seu método helper para pegar o ID do usuário logado
                 string userId = ObterUserId();
 
-                // 2. Fallback de segurança para testes locais caso o ID retorne 'admin-001'
-                if (userId == "admin-001")
+                int mesFiltro = mes ?? DateTime.Now.Month;
+                int anoFiltro = ano ?? DateTime.Now.Year;
+
+                if (mesFiltro < 1 || mesFiltro > 12)
                 {
-                    userId = "PiGS3DH27AaUiLdNhnw9AiedMpm2";
+                    return BadRequest(new
+                    {
+                        mensagem = "Mês inválido."
+                    });
                 }
 
-                Console.WriteLine($"[DEBUG MENSAL] Buscando gastos por categoria para o usuário: {userId}");
+                if (anoFiltro < 2000 || anoFiltro > 2100)
+                {
+                    return BadRequest(new
+                    {
+                        mensagem = "Ano inválido."
+                    });
+                }
 
-                // 3. Injeta o userId como argumento exigido pelo repositório!
-                var dados = await _repository.ObterGastosPorCategoria(userId);
+                Console.WriteLine(
+                    $"[GASTOS CATEGORIA] Usuario: {userId} | Mês: {mesFiltro} | Ano: {anoFiltro}"
+                );
 
-                return Ok(dados);
+                var resultado = await _repository.ObterGastosPorCategoria(
+                    userId,
+                    mesFiltro,
+                    anoFiltro
+                );
+
+                return Ok(resultado);
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[ERRO] GET Gastos Categoria: {ex.Message}");
-                return StatusCode(500, $"Erro interno: {ex.Message}");
+                Console.WriteLine(
+                    $"[ERRO GASTOS-CATEGORIA] {ex}"
+                );
+
+                return StatusCode(500, new
+                {
+                    erro = ex.Message,
+                    inner = ex.InnerException?.Message
+                });
             }
         }
 
@@ -311,18 +438,10 @@ namespace FinanceiroApi.Controllers
         {
             try
             {
-                // Reutiliza o método helper que você já tem no controller para pegar o ID logado
                 string userId = ObterUserId();
-
-                // Se o helper retornar o fallback de teste "admin-001", trocamos para o seu ID oficial de produção
-                if (userId == "admin-001")
-                {
-                    userId = "PiGS3DH27AaUiLdNhnw9AiedMpm2";
-                }
 
                 Console.WriteLine($"[DEBUG BI ANUAL] Buscando gastos acumulados do ano para o usuário: {userId}");
 
-                // Chama o repositório Dapper passando o ID correto
                 var dados = await _repository.ObterGastosAnuaisComMetas(userId);
 
                 return Ok(dados);
@@ -334,53 +453,207 @@ namespace FinanceiroApi.Controllers
             }
         }
 
-        // POST: api/Lancamentos/importar-pdf
+
+        private async Task AtualizarEstoqueCompraAsync(Lancamento lancamento)
+        {
+            if (lancamento.Itens == null || !lancamento.Itens.Any())
+                return;
+
+            if (lancamento.Id <= 0)
+                throw new InvalidOperationException(
+                    "O lançamento precisa estar salvo antes de atualizar o estoque.");
+
+            string usuarioId = lancamento.UsuarioId;
+
+            var itensAgrupados = lancamento.Itens
+                .Where(i =>
+                    !string.IsNullOrWhiteSpace(i.Descricao) &&
+                    i.Quantidade > 0)
+                .GroupBy(i => new
+                {
+                    Nome = i.Descricao.Trim().ToUpperInvariant(),
+                    Unidade = string.IsNullOrWhiteSpace(i.Unidade)
+                        ? "un"
+                        : i.Unidade.Trim().ToLowerInvariant()
+                });
+
+            foreach (var grupo in itensAgrupados)
+            {
+                string nome = grupo.First().Descricao.Trim();
+                string unidade = grupo.Key.Unidade;
+
+                decimal quantidade = grupo.Sum(i =>
+                    Convert.ToDecimal(i.Quantidade));
+
+                int categoriaId = grupo.First().CategoriaId > 0
+                    ? grupo.First().CategoriaId
+                    : lancamento.CategoriaId;
+
+                // Procura o produto independentemente de estar ativo
+                var produto = await _context.Estoques
+                    .FirstOrDefaultAsync(e =>
+                        e.UsuarioId == usuarioId &&
+                        e.Nome.ToUpper() == grupo.Key.Nome &&
+                        e.UnidadeMedida.ToLower() == unidade);
+
+                decimal quantidadeAnterior;
+                bool produtoReativado = false;
+
+                if (produto != null)
+                {
+                    if (!produto.Ativo)
+                    {
+                        // Produto anteriormente removido do estoque.
+                        // Reativa sem recuperar o saldo antigo.
+                        produto.Ativo = true;
+                        produtoReativado = true;
+
+                        quantidadeAnterior = 0;
+                        produto.QuantidadeAtual = quantidade;
+                    }
+                    else
+                    {
+                        // Produto ativo: soma a quantidade comprada
+                        quantidadeAnterior = produto.QuantidadeAtual;
+                        produto.QuantidadeAtual += quantidade;
+                    }
+                }
+                else
+                {
+                    // Produto ainda não cadastrado
+                    quantidadeAnterior = 0;
+
+                    produto = new Estoque
+                    {
+                        Nome = nome,
+                        QuantidadeAtual = quantidade,
+                        QuantidadeMinima = 1,
+                        UnidadeMedida = unidade,
+                        CategoriaId = categoriaId,
+                        UsuarioId = usuarioId,
+                        Ativo = true
+                    };
+
+                    _context.Estoques.Add(produto);
+                }
+
+                // Registra a entrada no histórico
+                var movimentacao = new EstoqueMovimentacao
+                {
+                    Estoque = produto,
+                    LancamentoId = lancamento.Id,
+                    UsuarioId = usuarioId,
+
+                    Tipo = "Entrada",
+                    Origem = "Compra",
+
+                    Quantidade = quantidade,
+                    QuantidadeAnterior = quantidadeAnterior,
+                    QuantidadePosterior = produto.QuantidadeAtual,
+
+                    DataMovimentacao = DateTime.UtcNow,
+
+                    Observacao = produtoReativado
+                        ? $"Produto reativado automaticamente pela compra #{lancamento.Id}"
+                        : $"Entrada automática pela compra #{lancamento.Id}"
+                };
+
+                _context.EstoqueMovimentacoes.Add(movimentacao);
+            }
+        }
+
+
         [HttpPost("importar-pdf")]
         [Consumes("multipart/form-data")]
-        public async Task<IActionResult> ImportarPdf(IFormFile pdf)
+        public async Task<IActionResult> ImportarPdf([FromForm] ImportarPdfRequest request)
         {
+            var pdf = request.Pdf;
+
             if (pdf == null || pdf.Length == 0)
-                return BadRequest("Arquivo PDF não recebido.");
+            {
+                return BadRequest(new
+                {
+                    sucesso = false,
+                    mensagem = "Arquivo PDF não recebido."
+                });
+            }
 
             try
             {
                 string userId = ObterUserId();
 
-                using (var stream = pdf.OpenReadStream())
+                if (string.IsNullOrEmpty(userId))
                 {
-                    // O serviço deve retornar o objeto Lancamento já populado, 
-                    // mas nós vamos garantir que as datas estejam certas agora.
-                    var lancamento = await _importacaoService.ProcessarPdfNota(stream, userId);
-
-                    if (lancamento == null)
-                        return BadRequest("Não foi possível extrair dados deste PDF.");
-
-                    // 🎯 FORÇAR O USO DA DATA DO PDF
-                    // Se o serviço leu "06/06/2026" do PDF, garantimos que 
-                    // o objeto Lançamento use exatamente essa data e não o momento da importação.
-                    lancamento.Data = lancamento.Data.Date;
-                    lancamento.DataEmissao = lancamento.Data.Date;
-
-                    // O momento da importação continua sendo o agora, para auditoria
-                    lancamento.DataImportacao = DateTime.Now;
-
-                    // Atualiza no banco com a data correta do PDF
-                    _context.Lancamentos.Update(lancamento);
-                    await _context.SaveChangesAsync();
-
-                    // Busca completo com as relações (Categoria/Itens)
-                    var lancamentoCompleto = await _context.Lancamentos
-                        .Include(l => l.Categoria)
-                        .Include(l => l.Itens)
-                        .FirstOrDefaultAsync(l => l.Id == lancamento.Id);
-
-                    return Ok(lancamentoCompleto);
+                    return BadRequest(new
+                    {
+                        sucesso = false,
+                        mensagem = "Usuário não identificado."
+                    });
                 }
+
+                using var stream = pdf.OpenReadStream();
+
+                var lancamento =
+                    await _importacaoService.ProcessarPdfNota(
+                        stream,
+                        userId
+                    );
+
+                if (lancamento == null)
+                {
+                    return BadRequest(new
+                    {
+                        sucesso = false,
+                        mensagem = "Não foi possível extrair dados."
+                    });
+                }
+
+                return Ok(new
+                {
+                    sucesso = true,
+                    mensagem = "PDF importado e salvo com sucesso!",
+                    id = lancamento.Id,
+                    descricao = lancamento.Descricao,
+                    valor = lancamento.Valor,
+                    totalItens = lancamento.Itens?.Count ?? 0
+                });
             }
+
+            // ============================================================
+            // NOTA DUPLICADA
+            // ============================================================
+            catch (InvalidOperationException ex)
+            {
+                Console.WriteLine(
+                    $"[NOTA DUPLICADA - CONTROLLER] {ex.Message}"
+                );
+
+                return Conflict(new
+                {
+                    sucesso = false,
+                    duplicada = true,
+                    mensagem = ex.Message
+                });
+            }
+
+            // ============================================================
+            // QUALQUER OUTRO ERRO
+            // ============================================================
             catch (Exception ex)
             {
-                Console.WriteLine($"Erro no processamento: {ex.Message}");
-                return StatusCode(500, $"Erro no processamento: {ex.Message}");
+                Console.WriteLine(
+                    $"[ERRO CONTROLLER] Falha na importação do PDF: {ex}"
+                );
+
+                return StatusCode(
+                    StatusCodes.Status500InternalServerError,
+                    new
+                    {
+                        sucesso = false,
+                        duplicada = false,
+                        mensagem = "Não conseguimos processar ou salvar este PDF."
+                    }
+                );
             }
         }
 
@@ -392,58 +665,91 @@ namespace FinanceiroApi.Controllers
                 string userId = ObterUserId();
                 novoLancamento.UsuarioId = userId;
 
-                // Obtém o horário atual de Brasília (UTC-3)
                 var fusoBrasilia = ObterFusoBrasilia();
                 DateTime agoraBrasilia = TimeZoneInfo.ConvertTime(DateTime.UtcNow, fusoBrasilia);
 
-                // 1. Zera a hora para garantir que o banco grave apenas 00:00:00
                 var dataParaGravar = novoLancamento.Data == DateTime.MinValue
-                                     ? agoraBrasilia.Date
-                                     : novoLancamento.Data.Date;
+                                   ? agoraBrasilia.Date
+                                   : novoLancamento.Data.Date;
 
                 novoLancamento.Data = dataParaGravar;
                 novoLancamento.DataEmissao = dataParaGravar;
-
-                // 2. DataImportacao é o único campo que deve manter o horário preciso (em Brasília)
                 novoLancamento.DataImportacao = agoraBrasilia;
+                novoLancamento.Tipo = novoLancamento.Tipo?.Trim().ToLowerInvariant() ?? "";
 
-                novoLancamento.Tipo = novoLancamento.Tipo.Trim().ToLower();
+                if (novoLancamento.Tipo != "receita" &&
+                    novoLancamento.Tipo != "despesa")
+                {
+                    return BadRequest(new
+                    {
+                        mensagem = "O tipo do lançamento deve ser receita ou despesa."
+                    });
+                }
 
                 if (novoLancamento.CategoriaId <= 0)
                 {
-                    novoLancamento.CategoriaId = await ObterIdDaCategoriaPorNome(ClassClassificacaoManual(novoLancamento.Descricao));
+                    novoLancamento.CategoriaId =
+                        await ObterIdDaCategoriaPorNome(
+                            ClassClassificacaoManual(novoLancamento.Descricao));
                 }
 
+                bool categoriaValida = await _context.Categorias
+                    .AnyAsync(c =>
+                        c.Id == novoLancamento.CategoriaId &&
+                        c.UsuarioId == userId);
+
+                if (!categoriaValida)
+                {
+                    return BadRequest(new
+                    {
+                        mensagem = "Categoria inválida ou não pertence ao usuário."
+                    });
+                }
+
+                // Não aceitar entidades relacionadas enviadas pelo cliente.
+                novoLancamento.CategoriaRef = null;
+                novoLancamento.Itens = new List<ItemLancamento>();
+                novoLancamento.Id = 0;
+
                 _context.Lancamentos.Add(novoLancamento);
+
                 await _context.SaveChangesAsync();
+
 
                 return Ok(novoLancamento);
             }
+            catch (InvalidOperationException ex)
+            {
+                Console.Error.WriteLine($"[LANÇAMENTO MANUAL] {ex}");
+                return BadRequest(new
+                {
+                    mensagem = "Não foi encontrada uma categoria válida. Cadastre uma categoria antes de salvar o lançamento."
+                });
+            }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Erro ao salvar lançamento manual: {ex.Message}");
+                Console.Error.WriteLine($"[ERRO LANÇAMENTO MANUAL] {ex}");
+                return StatusCode(500, new
+                {
+                    mensagem = "Não foi possível salvar o lançamento. Tente novamente."
+                });
             }
         }
 
-        // Método auxiliar para obter o fuso horário de Brasília de forma cross-platform
-        // Método auxiliar para obter o fuso horário de Brasília de forma cross-platform
         private TimeZoneInfo ObterFusoBrasilia()
         {
             try
             {
-                // Tenta primeiro o identificador do Linux/Mac
                 return TimeZoneInfo.FindSystemTimeZoneById("America/Sao_Paulo");
             }
             catch (TimeZoneNotFoundException)
             {
                 try
                 {
-                    // Se falhar, tenta o identificador do Windows
                     return TimeZoneInfo.FindSystemTimeZoneById("E. South America Standard Time");
                 }
                 catch (TimeZoneNotFoundException)
                 {
-                    // Fallback: usa UTC-3 manualmente
                     return TimeZoneInfo.CreateCustomTimeZone(
                         "Brasilia Time",
                         TimeSpan.FromHours(-3),
@@ -454,13 +760,12 @@ namespace FinanceiroApi.Controllers
             }
         }
 
-
-
         // DELETE: api/Lancamentos/5
         [HttpDelete("{id:int}")]
         public async Task<IActionResult> DeleteLancamento(int id)
         {
-            var lancamento = await _context.Lancamentos.FindAsync(id);
+            var userId = ObterUserId();
+            var lancamento = await _context.Lancamentos.FirstOrDefaultAsync(l => l.Id == id && l.UsuarioId == userId);
             if (lancamento == null) return NotFound();
 
             _context.Lancamentos.Remove(lancamento);
@@ -471,16 +776,28 @@ namespace FinanceiroApi.Controllers
 
         private async Task<int> ObterIdDaCategoriaPorNome(string nome)
         {
+            string userId = ObterUserId();
+
             var categoria = await _context.Categorias
                 .AsNoTracking()
-                .FirstOrDefaultAsync(c => c.Nome == nome);
+                .FirstOrDefaultAsync(c =>
+                    c.UsuarioId == userId && c.Nome == nome);
 
             if (categoria == null)
             {
-                categoria = await _context.Categorias.FirstOrDefaultAsync(c => c.Nome == "Outros");
+                categoria = await _context.Categorias
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(c =>
+                        c.UsuarioId == userId && c.Nome == "Outros");
             }
 
-            return categoria?.Id ?? 1;
+            if (categoria == null)
+            {
+                throw new InvalidOperationException(
+                    "Nenhuma categoria válida encontrada para o usuário.");
+            }
+
+            return categoria.Id;
         }
 
         private string ClassClassificacaoManual(string nomeProduto)
@@ -499,7 +816,7 @@ namespace FinanceiroApi.Controllers
                 { "Padaria", new[] { "PAO", "PULLMAN", "TORRADA" } },
                 { "Bebidas", new[] { "REFRIGERANTE", "COCA", "AGUA", "SUCO", "CERVEJA" } },
                 { "Pet Shop", new[] { "RACAO", "PEDIGREE", "CACHORRO", "GATO" } },
-                { "Acougue", new[] { "CARNE", "FRANGO", "LINGUICA", "BIFE" } },                
+                { "Acougue", new[] { "CARNE", "FRANGO", "LINGUICA", "BIFE" } },
                 { "Automóvel", new[] { "GASOLINA", "ALCOOL", "DIESEL", "SHELL", "IPIRANGA", "ESTACIONAMENTO", "UBER", "MECANICO", "AUTO", "CONSERTO" } },
                 { "Academia", new[] { "SMART FIT", "WHEY", "CREATINA", "GYMPASS" } },
                 { "Educacao", new[] { "FACULDADE", "FAAP", "CURSO", "UDEMY" } },

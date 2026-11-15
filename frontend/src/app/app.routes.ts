@@ -9,9 +9,9 @@ export const routes: Routes = [
   { path: 'login', component: LoginComponent },
   { path: 'forgot-password', component: ForgotPasswordComponent },
   { path: '', redirectTo: '/login', pathMatch: 'full' }, // Rota padrão
-  { 
-    path: 'cadastro', 
-    loadComponent: () => import('./components/cadastro/cadastro.component').then(m => m.CadastroComponent) 
+  {
+    path: 'cadastro',
+    loadComponent: () => import('./components/cadastro/cadastro.component').then(m => m.CadastroComponent)
   },
 
   // 2. ROTAS DO SISTEMA (Protegidas pelo AuthGuard)
@@ -29,7 +29,7 @@ export const routes: Routes = [
       { path: 'nova-senha', component: NewPasswordComponent },
     ]
   },
-  
+
   // 3. REDIRECIONAMENTOS
   { path: '', redirectTo: '/login', pathMatch: 'full' },
   { path: '**', redirectTo: '/login' }

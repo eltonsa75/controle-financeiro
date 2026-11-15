@@ -1,77 +1,467 @@
 <div class="container mt-4">
+
+  <!-- ========================================================= -->
+  <!-- CABEÇALHO -->
+  <!-- ========================================================= -->
+
   <div class="d-flex justify-content-between align-items-center mb-4">
+
     <div class="d-flex align-items-center gap-3">
-      <h2 class="fw-bold mb-0">📊 Gestão de Categorias</h2>
-      
+
+      <h2 class="fw-bold mb-0">
+        📊 Gestão de Categorias
+      </h2>
+
+      <!-- ===================================================== -->
+      <!-- MENSAL / ANUAL -->
+      <!-- ===================================================== -->
+
       <div class="btn-group shadow-sm" role="group">
-        <button type="button" class="btn" 
-                [class.btn-primary]="visaoAtual === 'mensal'" 
-                [class.btn-outline-primary]="visaoAtual !== 'mensal'"
-                (click)="alterarVisao('mensal')">
+
+        <button
+          type="button"
+          class="btn"
+          [class.btn-primary]="visaoAtual === 'mensal'"
+          [class.btn-outline-primary]="visaoAtual !== 'mensal'"
+          (click)="alterarVisao('mensal')">
+
           Mensal
+
         </button>
-        <button type="button" class="btn" 
-                [class.btn-primary]="visaoAtual === 'anual'" 
-                [class.btn-outline-primary]="visaoAtual !== 'anual'"
-                (click)="alterarVisao('anual')">
+
+        <button
+          type="button"
+          class="btn"
+          [class.btn-primary]="visaoAtual === 'anual'"
+          [class.btn-outline-primary]="visaoAtual !== 'anual'"
+          (click)="alterarVisao('anual')">
+
           Anual
+
         </button>
+
       </div>
+
     </div>
 
-    <button class="btn btn-primary shadow-sm" (click)="abrirModalNovaCategoria()">
-      <i class="bi bi-plus-lg"></i> Nova Categoria
+
+    <!-- ======================================================= -->
+    <!-- NOVA CATEGORIA -->
+    <!-- ======================================================= -->
+
+    <button
+      class="btn btn-primary shadow-sm"
+      (click)="abrirModalNovaCategoria()">
+
+      <i class="bi bi-plus-lg"></i>
+
+      Nova Categoria
+
     </button>
+
   </div>
 
-  <div class="row" cdkDropList (cdkDropListDropped)="drop($event)">
-    <div class="col-md-4 mb-4" *ngFor="let cat of categorias" cdkDrag>
+
+  <!-- ========================================================= -->
+  <!-- SELETOR DO MÊS -->
+  <!-- Aparece somente na visão MENSAL -->
+  <!-- ========================================================= -->
+
+  <div
+    *ngIf="visaoAtual === 'mensal'"
+    class="d-flex justify-content-center align-items-center mb-4">
+
+    <div
+      class="d-flex align-items-center gap-3 bg-white border rounded-3 shadow-sm px-3 py-2">
+
+      <!-- MÊS ANTERIOR -->
+
+      <button
+        type="button"
+        class="btn btn-outline-primary btn-sm"
+        (click)="mesAnterior()"
+        title="Mês anterior">
+
+        <i class="bi bi-chevron-left"></i>
+
+      </button>
+
+
+      <!-- MÊS / ANO -->
+
+      <div
+        class="fw-bold text-primary text-center"
+        style="min-width: 160px;">
+
+        <i class="bi bi-calendar3 me-2"></i>
+
+        {{ nomeMesSelecionado }}
+
+      </div>
+
+
+      <!-- PRÓXIMO MÊS -->
+
+      <button
+        type="button"
+        class="btn btn-outline-primary btn-sm"
+        (click)="proximoMes()"
+        title="Próximo mês">
+
+        <i class="bi bi-chevron-right"></i>
+
+      </button>
+
+    </div>
+
+  </div>
+
+
+  <!-- ========================================================= -->
+  <!-- CARDS DAS CATEGORIAS -->
+  <!-- ========================================================= -->
+
+  <div
+    class="row"
+    cdkDropList
+    (cdkDropListDropped)="drop($event)">
+
+    <div
+      class="col-md-4 mb-4"
+      *ngFor="let cat of categorias"
+      cdkDrag>
 
       <div *cdkDragPlaceholder></div>
 
-      <div class="card h-100 shadow-sm border-0 border-start border-4" [style.border-color]="cat.corHex">
+
+      <div
+        class="card h-100 shadow-sm border-0 border-start border-4"
+        [style.border-color]="cat.corHex">
+
+
         <div class="card-body">
-          <div class="d-flex justify-content-between align-items-start">
-            <h5 class="card-title fw-bold">{{ cat.nome }}</h5>
-            <span class="badge bg-light text-dark border">{{ (cat.percentual ?? 0) | number:'1.0-0' }}%</span>
+
+
+          <!-- ================================================= -->
+          <!-- NOME / PERCENTUAL -->
+          <!-- ================================================= -->
+
+          <div
+            class="d-flex justify-content-between align-items-start">
+
+            <h5 class="card-title fw-bold">
+
+              {{ cat.nome }}
+
+            </h5>
+
+
+            <span
+              class="badge bg-light text-dark border">
+
+              {{ (cat.percentual ?? 0) | number:'1.0-0' }}%
+
+            </span>
+
           </div>
-          
+
+
+          <!-- ================================================= -->
+          <!-- VALORES -->
+          <!-- ================================================= -->
+
           <div class="my-2">
-            <ng-container *ngIf="(cat.gastoAtual ?? 0) > 0; else semLancamentos">
+
+
+            <!-- TEM LANÇAMENTOS -->
+
+            <ng-container
+              *ngIf="(cat.gastoAtual ?? 0) > 0; else semLancamentos">
+
               <p class="text-muted small mb-1">
-                {{ visaoAtual === 'mensal' ? 'Gasto Mês' : 'Acumulado Ano' }}: {{ (cat.gastoAtual ?? 0) | currency:'BRL' }} / 
-                {{ visaoAtual === 'mensal' ? 'Meta' : 'Teto Ano' }}: {{ (cat.metaMensal ?? 0) | currency:'BRL' }}
+
+                {{
+                  visaoAtual === 'mensal'
+                    ? 'Gasto Mês'
+                    : 'Acumulado Ano'
+                }}:
+
+                <strong>
+                  {{ (cat.gastoAtual ?? 0) | currency:'BRL' }}
+                </strong>
+
+                /
+
+                {{
+                  visaoAtual === 'mensal'
+                    ? 'Meta'
+                    : 'Teto Ano'
+                }}:
+
+                <strong>
+                  {{ (cat.metaMensal ?? 0) | currency:'BRL' }}
+                </strong>
+
               </p>
+
             </ng-container>
 
+
+            <!-- SEM LANÇAMENTOS -->
+
             <ng-template #semLancamentos>
+
               <p class="text-muted small mb-1 fst-italic">
-                Sem lançamentos este mês
+
+                {{
+                  visaoAtual === 'mensal'
+                    ? 'Sem lançamentos neste mês'
+                    : 'Sem lançamentos neste ano'
+                }}
+
               </p>
+
             </ng-template>
-          </div>
-          
-          <div class="progress mb-3" style="height: 10px;">
-            <div class="progress-bar" 
-                 [ngClass]="getProgressBarClass(cat.percentual ?? 0)"
-                 role="progressbar" 
-                 [style.width.%]="((cat.percentual ?? 0) > 100 ? 100 : (cat.percentual ?? 0))">
-            </div>
+
           </div>
 
-          <div class="d-flex justify-content-end gap-2">
-            <button class="btn btn-outline-secondary btn-sm" (click)="editar(cat)" title="Editar">
-              <i class="bi bi-pencil"></i>
-            </button>
-            <button class="btn btn-outline-danger btn-sm" (click)="excluir(cat.id, cat.nome)" title="Excluir">
-              <i class="bi bi-trash"></i>
-            </button>
+
+          <!-- ================================================= -->
+          <!-- BARRA DA META -->
+          <!-- ================================================= -->
+
+          <div
+            class="progress mb-3"
+            style="height: 10px;">
+
+            <div
+              class="progress-bar"
+              [ngClass]="getProgressBarClass(cat.percentual ?? 0)"
+              role="progressbar"
+              [style.width.%]="
+                (cat.percentual ?? 0) > 100
+                  ? 100
+                  : (cat.percentual ?? 0)
+              ">
+
+            </div>
+
           </div>
+
+
+          <!-- ================================================= -->
+          <!-- AÇÕES -->
+          <!-- ================================================= -->
+
+          <div
+            class="d-flex justify-content-end gap-2">
+
+            <!-- EDITAR -->
+
+            <button
+              class="btn btn-outline-secondary btn-sm"
+              (click)="editar(cat)"
+              title="Editar">
+
+              <i class="bi bi-pencil"></i>
+
+            </button>
+
+
+            <!-- EXCLUIR -->
+
+            <button
+              class="btn btn-outline-danger btn-sm"
+              (click)="excluir(cat.id, cat.nome)"
+              title="Excluir">
+
+              <i class="bi bi-trash"></i>
+
+            </button>
+
+          </div>
+
         </div>
+
       </div>
+
     </div>
+
   </div>
+
 </div>
 
-<div class="modal fade" id="modalCategoria" tabindex="-1" aria-labelledby="modalCategoriaLabel" aria-hidden="true">
+
+
+<!-- =========================================================== -->
+<!-- BACKDROP DO MODAL -->
+<!-- =========================================================== -->
+
+<div
+  class="modal-backdrop fade show"
+  *ngIf="modalAberto">
+</div>
+
+
+
+<!-- =========================================================== -->
+<!-- MODAL -->
+<!-- =========================================================== -->
+
+<div
+  class="modal fade"
+  [class.show]="modalAberto"
+  [style.display]="modalAberto ? 'block' : 'none'"
+  tabindex="-1">
+
+  <div class="modal-dialog">
+
+    <div class="modal-content">
+
+      <form
+        [formGroup]="formCategoria"
+        (ngSubmit)="salvarCategoria()">
+
+
+        <!-- =================================================== -->
+        <!-- HEADER -->
+        <!-- =================================================== -->
+
+        <div class="modal-header">
+
+          <h5 class="modal-title fw-bold">
+
+            {{
+              formCategoria.get('id')?.value
+                ? 'Editar Categoria'
+                : 'Nova Categoria'
+            }}
+
+          </h5>
+
+
+          <button
+            type="button"
+            class="btn-close"
+            (click)="fecharModal()">
+          </button>
+
+        </div>
+
+
+        <!-- =================================================== -->
+        <!-- BODY -->
+        <!-- =================================================== -->
+
+        <div class="modal-body">
+
+
+          <!-- NOME -->
+
+          <div class="mb-3">
+
+            <label class="form-label">
+
+              Nome da Categoria
+
+            </label>
+
+            <input
+              type="text"
+              class="form-control"
+              formControlName="nome">
+
+          </div>
+
+
+          <!-- META -->
+
+          <div class="mb-3">
+
+            <label class="form-label">
+
+              Meta Mensal (R$)
+
+            </label>
+
+            <input
+              type="number"
+              class="form-control"
+              formControlName="metaMensal"
+              step="0.01">
+
+          </div>
+
+
+          <!-- COR -->
+
+          <div class="mb-3">
+
+            <label class="form-label">
+
+              Cor do Indicador
+
+            </label>
+
+            <input
+              type="color"
+              class="form-control form-control-color w-100"
+              formControlName="corHex">
+
+          </div>
+
+
+          <!-- PALAVRAS CHAVE -->
+
+          <div class="mb-3">
+
+            <label class="form-label">
+
+              Palavras-chave
+
+            </label>
+
+            <input
+              type="text"
+              class="form-control"
+              formControlName="palavrasChave">
+
+          </div>
+
+        </div>
+
+
+        <!-- =================================================== -->
+        <!-- FOOTER -->
+        <!-- =================================================== -->
+
+        <div class="modal-footer">
+
+          <button
+            type="button"
+            class="btn btn-secondary"
+            (click)="fecharModal()">
+
+            Cancelar
+
+          </button>
+
+
+          <button
+            type="submit"
+            class="btn btn-primary"
+            [disabled]="formCategoria.invalid">
+
+            Salvar
+
+          </button>
+
+        </div>
+
+      </form>
+
+    </div>
+
   </div>
+
+</div>

@@ -5,25 +5,25 @@
 namespace Financeiro.Api.Migrations
 {
     /// <inheritdoc />
-    public partial class AddUsuarioIdToItensLancamento : Migration
+    public partial class AdicionarAtivoEstoque : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.AddColumn<string>(
-                name: "UsuarioId",
-                table: "ItensLancamento",
-                type: "longtext",
-                nullable: true)
-                .Annotation("MySql:CharSet", "utf8mb4");
+            migrationBuilder.AddColumn<bool>(
+                name: "Ativo",
+                table: "Estoque",
+                type: "tinyint(1)",
+                nullable: false,
+                defaultValue: false);
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropColumn(
-                name: "UsuarioId",
-                table: "ItensLancamento");
+                name: "Ativo",
+                table: "Estoque");
         }
     }
 }

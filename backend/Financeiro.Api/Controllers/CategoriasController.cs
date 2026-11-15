@@ -26,12 +26,20 @@ namespace FinanceiroApi.Controllers
         {
             try
             {
-                var usuarioId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? User.FindFirst("user_id")?.Value;
+                var usuarioId =
+                    User.FindFirst(ClaimTypes.NameIdentifier)?.Value ??
+                    User.FindFirst("user_id")?.Value;
+
+                if (string.IsNullOrEmpty(usuarioId))
+                {
+                    return Unauthorized("Usuário não identificado.");
+                }
 
                 var categorias = await _context.Categorias
                     .AsNoTracking()
                     .Where(c => c.UsuarioId == usuarioId)
-                    .OrderBy(c => c.Nome)
+                    .OrderBy(c => c.Ordem)
+                    .ThenBy(c => c.Nome)
                     .ToListAsync();
 
                 return Ok(categorias);
@@ -43,36 +51,53 @@ namespace FinanceiroApi.Controllers
             }
         }
 
+
         [HttpGet("status")]
-        public async Task<IActionResult> GetStatus(int mes, int ano, string tipo = "mensal")
+        public async Task<IActionResult> GetStatus(
+            int mes,
+            int ano,
+            string tipo = "mensal")
         {
             try
             {
-                var usuarioId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? User.FindFirst("user_id")?.Value;
+                var usuarioId =
+                    User.FindFirst(ClaimTypes.NameIdentifier)?.Value ??
+                    User.FindFirst("user_id")?.Value;
+
+                if (string.IsNullOrEmpty(usuarioId))
+                {
+                    return Unauthorized("Usuário não identificado.");
+                }
 
                 var categorias = await _context.Categorias
                     .AsNoTracking()
                     .Where(c => c.UsuarioId == usuarioId)
+                    .OrderBy(c => c.Ordem)
+                    .ThenBy(c => c.Nome)
                     .ToListAsync();
 
-                var resultado = categorias.Select(c => {
-                    // 🎯 AQUI ESTÁ A CORREÇÃO: Adicionamos o filtro de data na query
+                var resultado = categorias.Select(c =>
+                {
                     var query = _context.Lancamentos
                         .Where(l => l.CategoriaId == c.Id
-                                 && l.Data.Month == mes
-                                 && l.Data.Year == ano); // FILTRO DE DATA APLICADO
+                                 && l.DataEmissao.Month == mes
+                                 && l.DataEmissao.Year == ano);
 
-                    var gastos = query.Sum(l => (decimal?)Math.Abs(l.Valor)) ?? 0;
+                    var gastos = query.Sum(l =>
+                        (decimal?)Math.Abs(l.Valor)) ?? 0;
 
                     return new
                     {
                         c.Id,
                         c.Nome,
+                        c.Ordem,
                         c.MetaMensal,
                         c.CorHex,
                         c.PalavrasChave,
                         GastoAtual = gastos,
-                        Percentual = c.MetaMensal > 0 ? (gastos / c.MetaMensal) * 100 : 0
+                        Percentual = c.MetaMensal > 0
+                            ? (gastos / c.MetaMensal) * 100
+                            : 0
                     };
                 }).ToList();
 
@@ -80,9 +105,14 @@ namespace FinanceiroApi.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, ex.Message);
+                Console.WriteLine(
+                    $"Erro ao carregar status das categorias: {ex.Message}");
+
+                return StatusCode(500,
+                    "Erro interno ao carregar categorias.");
             }
         }
+
 
         // POST: api/categorias
         [HttpPost]
@@ -161,19 +191,84 @@ namespace FinanceiroApi.Controllers
             }
         }
 
+        // PUT: api/categorias/ordenar
+        [HttpPut("ordenar")]
+        public async Task<IActionResult> AtualizarOrdemCategorias(
+            [FromBody] List<Categoria> categorias)
+        {
+            try
+            {
+                var usuarioId =
+                    User.FindFirst(ClaimTypes.NameIdentifier)?.Value ??
+                    User.FindFirst("user_id")?.Value;
+
+                if (string.IsNullOrEmpty(usuarioId))
+                {
+                    return Unauthorized("Usuário não identificado.");
+                }
+
+                if (categorias == null || categorias.Count == 0)
+                {
+                    return BadRequest("Nenhuma categoria foi informada.");
+                }
+
+                var ids = categorias
+                    .Select(c => c.Id)
+                    .ToList();
+
+                var categoriasBanco = await _context.Categorias
+                    .Where(c =>
+                        c.UsuarioId == usuarioId &&
+                        ids.Contains(c.Id))
+                    .ToListAsync();
+
+                foreach (var categoriaBanco in categoriasBanco)
+                {
+                    var categoriaRecebida = categorias
+                        .FirstOrDefault(c => c.Id == categoriaBanco.Id);
+
+                    if (categoriaRecebida != null)
+                    {
+                        categoriaBanco.Ordem = categoriaRecebida.Ordem;
+                    }
+                }
+
+                await _context.SaveChangesAsync();
+
+                return Ok(new
+                {
+                    sucesso = true,
+                    mensagem = "Ordem das categorias atualizada com sucesso."
+                });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(
+                    $"Erro ao atualizar ordem das categorias: {ex.Message}");
+
+                return StatusCode(
+                    500,
+                    $"Erro interno ao atualizar a ordem: {ex.Message}");
+            }
+        }
+
         // DELETE: api/categorias/5
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteCategoria(int id)
         {
-            var usuarioId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? User.FindFirst("user_id")?.Value;
-
-            var categoria = await _context.Categorias
-                .FirstOrDefaultAsync(c => c.Id == id && c.UsuarioId == usuarioId);
-
+            var categoria = await _context.Categorias.FindAsync(id);
             if (categoria == null) return NotFound();
+
+            // CORRIGIDO: Passando a condição dentro de AnyAsync e usando CategoriaId
+            bool temVinculos = await _context.Lancamentos.AnyAsync(l => l.CategoriaId == id);
+            if (temVinculos)
+            {
+                return BadRequest("Não é possível excluir esta categoria pois existem lançamentos vinculados a ela.");
+            }
 
             _context.Categorias.Remove(categoria);
             await _context.SaveChangesAsync();
+
             return NoContent();
         }
     }

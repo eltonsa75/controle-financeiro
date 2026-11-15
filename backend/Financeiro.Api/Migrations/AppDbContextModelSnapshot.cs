@@ -41,6 +41,9 @@ namespace Financeiro.Api.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("varchar(100)");
 
+                    b.Property<int>("Ordem")
+                        .HasColumnType("int");
+
                     b.Property<string>("PalavrasChave")
                         .HasColumnType("longtext");
 
@@ -68,6 +71,10 @@ namespace Financeiro.Api.Migrations
                         .HasColumnType("varchar(100)")
                         .HasDefaultValue("Geral");
 
+                    b.Property<int>("CategoriaId")
+                        .HasColumnType("int")
+                        .HasColumnName("CategoriaId");
+
                     b.Property<bool>("Comprado")
                         .HasColumnType("tinyint(1)");
 
@@ -92,9 +99,13 @@ namespace Financeiro.Api.Migrations
                         .HasDefaultValue("un");
 
                     b.Property<string>("UsuarioId")
-                        .HasColumnType("longtext");
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("varchar(128)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("CategoriaId");
 
                     b.HasIndex("LancamentoId");
 
@@ -110,7 +121,8 @@ namespace Financeiro.Api.Migrations
                     MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<int>("CategoriaId")
-                        .HasColumnType("int");
+                        .HasColumnType("int")
+                        .HasColumnName("CategoriaID");
 
                     b.Property<DateTime>("Data")
                         .HasColumnType("datetime(6)");
@@ -123,9 +135,17 @@ namespace Financeiro.Api.Migrations
                         .HasColumnType("datetime(6)")
                         .HasDefaultValueSql("CURRENT_TIMESTAMP(6)");
 
+                    b.Property<decimal?>("Desconto")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<string>("Descricao")
                         .IsRequired()
                         .HasColumnType("longtext");
+
+                    b.Property<decimal?>("Subtotal")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<string>("Tipo")
                         .IsRequired()
@@ -154,6 +174,9 @@ namespace Financeiro.Api.Migrations
                         .HasColumnType("int");
 
                     MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("Ativo")
+                        .HasColumnType("tinyint(1)");
 
                     b.Property<int>("CategoriaId")
                         .HasColumnType("int");
@@ -186,26 +209,89 @@ namespace Financeiro.Api.Migrations
                     b.ToTable("Estoque");
                 });
 
+            modelBuilder.Entity("FinanceiroApi.Models.EstoqueMovimentacao", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("DataMovimentacao")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("EstoqueId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("LancamentoId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Observacao")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<string>("Origem")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)");
+
+                    b.Property<decimal>("Quantidade")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<decimal>("QuantidadeAnterior")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<decimal>("QuantidadePosterior")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<string>("Tipo")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<string>("UsuarioId")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EstoqueId");
+
+                    b.HasIndex("UsuarioId", "DataMovimentacao");
+
+                    b.ToTable("EstoqueMovimentacoes", (string)null);
+                });
+
             modelBuilder.Entity("Financeiro.Api.Models.ItemLancamento", b =>
                 {
+                    b.HasOne("Financeiro.Api.Models.Categoria", "CategoriaRef")
+                        .WithMany()
+                        .HasForeignKey("CategoriaId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Financeiro.Api.Models.Lancamento", "Lancamento")
                         .WithMany("Itens")
                         .HasForeignKey("LancamentoId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.Navigation("CategoriaRef");
+
                     b.Navigation("Lancamento");
                 });
 
             modelBuilder.Entity("Financeiro.Api.Models.Lancamento", b =>
                 {
-                    b.HasOne("Financeiro.Api.Models.Categoria", "Categoria")
+                    b.HasOne("Financeiro.Api.Models.Categoria", "CategoriaRef")
                         .WithMany("Lancamentos")
                         .HasForeignKey("CategoriaId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
 
-                    b.Navigation("Categoria");
+                    b.Navigation("CategoriaRef");
                 });
 
             modelBuilder.Entity("FinanceiroApi.Models.Estoque", b =>
@@ -217,6 +303,17 @@ namespace Financeiro.Api.Migrations
                         .IsRequired();
 
                     b.Navigation("Categoria");
+                });
+
+            modelBuilder.Entity("FinanceiroApi.Models.EstoqueMovimentacao", b =>
+                {
+                    b.HasOne("FinanceiroApi.Models.Estoque", "Estoque")
+                        .WithMany()
+                        .HasForeignKey("EstoqueId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Estoque");
                 });
 
             modelBuilder.Entity("Financeiro.Api.Models.Categoria", b =>

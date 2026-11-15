@@ -24,10 +24,10 @@ export class CadastroComponent {
 cadastroForm: FormGroup = this.fb.group({
   // Campo 'nome' obrigatório, min 3 caracteres
   nome: ['', [Validators.required, Validators.minLength(3)]],
-  
+
   // Campo 'email' obrigatório e deve ser um formato de e-mail válido
   email: ['', [Validators.required, Validators.email]],
-  
+
   // Campo 'senha' obrigatório, mínimo 6 caracteres (regra padrão do Firebase)
   senha: ['', [Validators.required, Validators.minLength(6)]]
 });
@@ -44,12 +44,12 @@ cadastroForm: FormGroup = this.fb.group({
 
     try {
       await this.authService.registrar(email, senha);
-      
+
       // Redireciona para o dashboard após sucesso
       this.router.navigate(['/dashboard']);
     } catch (error: any) {
       console.error('Erro no cadastro:', error);
-      
+
       // Tratamento amigável de erro
       if (error.code === 'auth/email-already-in-use') {
         this.erro = 'Este e-mail já está em uso.';

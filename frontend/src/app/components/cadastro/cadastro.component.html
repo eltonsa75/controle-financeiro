@@ -1,6 +1,6 @@
 <div class="main-container">
   <div class="login-box">
-    
+
     <div class="purple-panel">
       <div class="welcome-text">
         <h1>Crie sua conta</h1>
@@ -10,11 +10,11 @@
 
     <div class="form-panel">
       <h2>Cadastro</h2>
-      
+
       <form [formGroup]="cadastroForm" (ngSubmit)="cadastrar()" class="custom-form">
-        
+
         <div class="field-wrapper">
-   
+
           <div class="input-group" [class.error-border]="cadastroForm.get('nome')?.touched && cadastroForm.get('nome')?.invalid">
             <span class="input-group-text"><i class="bi bi-person-fill"></i></span>
             <input type="text" formControlName="nome" placeholder="Nome Completo" class="form-control"
@@ -26,7 +26,7 @@
         </div>
 
         <div class="field-wrapper">
-          
+
           <div class="input-group" [class.error-border]="cadastroForm.get('email')?.touched && cadastroForm.get('email')?.invalid">
             <span class="input-group-text"><i class="bi bi-envelope-fill"></i></span>
             <input type="email" formControlName="email" placeholder="E-mail" class="form-control"
@@ -38,7 +38,7 @@
         </div>
 
         <div class="field-wrapper">
-         
+
           <div class="input-group" [class.error-border]="cadastroForm.get('senha')?.touched && cadastroForm.get('senha')?.invalid">
             <span class="input-group-text"><i class="bi bi-lock-fill"></i></span>
             <input type="password" formControlName="senha" placeholder="Senha" class="form-control"

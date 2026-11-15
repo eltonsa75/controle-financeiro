@@ -8,6 +8,7 @@ namespace FinanceiroApi.Models
     public class Estoque
     {
         [Key]
+        [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         public int Id { get; set; }
 
         [Required]
@@ -26,6 +27,8 @@ namespace FinanceiroApi.Models
 
         [Required]
         public int CategoriaId { get; set; }
+
+        public bool Ativo { get; set; } = true;
 
         // Propriedade de Navegação do EF Core
         [ForeignKey("CategoriaId")]

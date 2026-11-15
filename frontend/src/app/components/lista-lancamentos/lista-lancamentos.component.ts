@@ -1,9 +1,9 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms'; 
+import { FormsModule } from '@angular/forms';
 import { FinanceiroService } from '../../services/financeiro.service';
 import { CategoriaService } from '../../services/services/categoria.service';
-import { Router, RouterModule } from '@angular/router'; 
+import { Router, RouterModule } from '@angular/router';
 import { Lancamento } from '../../models/financeiro.model';
 import Swal from 'sweetalert2';
 import { firstValueFrom } from 'rxjs';
@@ -11,20 +11,20 @@ import { firstValueFrom } from 'rxjs';
 @Component({
   selector: 'app-lista-lancamentos',
   standalone: true,
-  imports: [CommonModule, RouterModule, FormsModule], 
+  imports: [CommonModule, RouterModule, FormsModule],
   templateUrl: './lista-lancamentos.component.html',
   styleUrl: './lista-lancamentos.component.css'
 })
 export class ListaLancamentosComponent implements OnInit {
 
-  listaLancamentos: Lancamento[] = []; 
+  listaLancamentos: Lancamento[] = [];
   categorias: any[] = [];
-  carregando: boolean = true; 
-  mesAnoSelecionado: string = ''; 
+  carregando: boolean = true;
+  mesAnoSelecionado: string = '';
 
   // --- VARIÁVEIS DO MODAL ADAPTADAS PARA O REATIVO DO ANGULAR ---
   exibirModal: boolean = false;
-  itemSelecionado: any = null; 
+  itemSelecionado: any = null;
   itensSelecionados: any[] = []; // Guarda a lista de sub-itens se houver
 
   paginaAtual: number = 1;
@@ -53,12 +53,21 @@ export class ListaLancamentosComponent implements OnInit {
   carregarLancamentos() {
     this.carregando = true;
     this.financeiroService.getLancamentos().subscribe({
-      next: (dados) => {
-        this.listaLancamentos = (dados || []).sort((a, b) => 
-          new Date(b.dataEmissao).getTime() - new Date(a.dataEmissao).getTime()
-        );
-        this.carregando = false;
-      },
+ next: (dados) => {
+
+  console.log('===== LANÇAMENTOS RECEBIDOS =====');
+  console.log(dados);
+
+  const wms = dados.find((x: any) => x.id === 54);
+
+  this.listaLancamentos = (dados || []).sort((a, b) => {
+    const dataA = new Date(a.dataEmissao || a.data).getTime();
+    const dataB = new Date(b.dataEmissao || b.data).getTime();
+    return dataB - dataA;
+  });
+
+  this.carregando = false;
+},
       error: (err) => {
         console.error('Erro:', err);
         this.carregando = false;
@@ -70,18 +79,18 @@ export class ListaLancamentosComponent implements OnInit {
   abrirModalItens(lancamento: Lancamento) {
     // Definimos o card principal selecionado para alimentar o cabeçalho do modal
     this.itemSelecionado = lancamento;
-    
-    Swal.fire({ 
-      title: 'Buscando itens...', 
-      allowOutsideClick: false, 
-      didOpen: () => Swal.showLoading() 
+
+    Swal.fire({
+      title: 'Buscando itens...',
+      allowOutsideClick: false,
+      didOpen: () => Swal.showLoading()
     });
 
     this.financeiroService.getItensPorLancamento(lancamento.id!).subscribe({
       next: (data) => {
         this.itensSelecionados = data || [];
         Swal.close();
-        
+
         // Ativa a reatividade do Angular para renderizar o Modal na tela
         this.exibirModal = true;
       },

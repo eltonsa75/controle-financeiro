@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { environment } from '../../../environments/environment';
 
 // Interface baseada no nosso UML e Back-end
 export interface Categoria {
@@ -22,23 +23,20 @@ export interface CategoriaStatus extends Categoria {
   providedIn: 'root'
 })
 export class CategoriaService {
-  
+
   // Rota apontando direto para o seu controller .NET
-  private readonly API = 'http://localhost:5037/api/categorias';  
+  private readonly API = `${environment.apiUrl}/categorias`;
 
   constructor(private http: HttpClient) { }
-
 
   listarComStatus(mes: number, ano: number, tipo: string = 'mensal'): Observable<CategoriaStatus[]> {
     return this.http.get<CategoriaStatus[]>(`${this.API}/status?mes=${mes}&ano=${ano}&tipo=${tipo}`);
   }
 
- 
   listarTodas(): Observable<Categoria[]> {
     return this.http.get<Categoria[]>(this.API);
   }
 
- 
   salvar(categoria: Categoria): Observable<Categoria> {
     if (categoria.id && categoria.id > 0) {
       return this.http.put<Categoria>(`${this.API}/${categoria.id}`, categoria);
@@ -46,7 +44,8 @@ export class CategoriaService {
     return this.http.post<Categoria>(this.API, categoria);
   }
 
-  excluir(id: number): Observable<void> {
-    return this.http.delete<void>(`${this.API}/${id}`);
+  excluir(id: number): Observable<any> {
+    // CORRIGIDO: Utilizando 'this.API' em vez de 'this.apiUrl'
+    return this.http.delete(`${this.API}/${id}`, { responseType: 'text' });
   }
 }

@@ -21,10 +21,11 @@ export class EstoqueComponent implements OnInit {
   formEstoque: FormGroup;
 
   filtroTexto: string = '';
-  filtroStatus: 'todos' | 'critico' | 'abastecido' = 'todos';
+  filtroStatus: 'todos' | 'baixo' | 'faltando' | 'abastecido' = 'todos';
 
   totalItens: number = 0;
-  totalCriticos: number = 0;
+  totalBaixo: number = 0;
+  totalFaltando: number = 0;
   totalAbastecidos: number = 0;
 
   paginaAtual: number = 1;
@@ -63,42 +64,79 @@ export class EstoqueComponent implements OnInit {
     });
   }
 
+  getStatus(item: any): string {
+  if (item.quantidadeAtual <= 0) {
+    return 'Faltando';
+  }
+
+  if (item.quantidadeAtual <= item.quantidadeMinima) {
+    return 'Estoque baixo';
+  }
+
+  return 'Disponível';
+}
+
   calcularMétricas(): void {
     this.totalItens = this.itens.length;
-    this.totalCriticos = this.itens.filter(i => i.quantidadeAtual <= i.quantidadeMinima).length;
-    this.totalAbastecidos = this.itens.filter(i => i.quantidadeAtual > i.quantidadeMinima).length;
+    this.totalFaltando = this.itens.filter(i => i.quantidadeAtual <= 0).length;
+    this.totalBaixo = this.itens.filter(i =>
+      i.quantidadeAtual > 0 && i.quantidadeAtual <= i.quantidadeMinima
+    ).length;
+    this.totalAbastecidos = this.itens.filter(i =>
+      i.quantidadeAtual > i.quantidadeMinima
+    ).length;
   }
 
   aplicarFiltros(): void {
+    const busca = this.filtroTexto.trim().toLowerCase();
     this.itensFiltrados = this.itens.filter(item => {
-      const bateTexto = item.nome.toLowerCase().includes(this.filtroTexto.toLowerCase());
-      if (this.filtroStatus === 'critico') return bateTexto && (item.quantidadeAtual <= item.quantidadeMinima);
-      if (this.filtroStatus === 'abastecido') return bateTexto && (item.quantidadeAtual > item.quantidadeMinima);
-      return bateTexto;
+      const bateTexto = item.nome.toLowerCase().includes(busca);
+      if (!bateTexto) return false;
+      switch (this.filtroStatus) {
+        case 'faltando': return item.quantidadeAtual <= 0;
+        case 'baixo': return item.quantidadeAtual > 0 &&
+          item.quantidadeAtual <= item.quantidadeMinima;
+        case 'abastecido': return item.quantidadeAtual > item.quantidadeMinima;
+        default: return true;
+      }
     });
+    if (this.paginaAtual > this.totalPaginas) {
+      this.paginaAtual = this.totalPaginas;
+    }
   }
 
-  alterarFiltroStatus(status: 'todos' | 'critico' | 'abastecido'): void { this.filtroStatus = status; this.paginaAtual = 1; this.aplicarFiltros(); }
-  aoDigitarBusca(event: any): void { this.filtroTexto = event.target.value; this.paginaAtual = 1; this.aplicarFiltros(); }
-  
-  isItemCritico(item: ItemEstoque): boolean { return item.quantidadeAtual <= item.quantidadeMinima; }
+  alterarFiltroStatus(status: 'todos' | 'baixo' | 'faltando' | 'abastecido'): void {
+    this.filtroStatus = status;
+    this.paginaAtual = 1;
+    this.aplicarFiltros();
+  }
+
+  aoDigitarBusca(event: Event): void {
+    this.filtroTexto = (event.target as HTMLInputElement).value;
+    this.paginaAtual = 1;
+    this.aplicarFiltros();
+  }
+
+  isItemCritico(item: ItemEstoque): boolean {
+    return item.quantidadeAtual <= item.quantidadeMinima;
+  }
 
   ajustarQtd(item: ItemEstoque, valor: number): void {
     this.estoqueService.ajustarQuantidade(item.id, valor).subscribe(() => this.carregarEstoque());
   }
 
-  abrirModalNovoItem(): void { 
+  abrirModalNovoItem(): void {
     this.formEstoque.reset({ id: null, quantidadeAtual: 0, quantidadeMinima: 1, unidadeMedida: 'un', categoriaId: '' });
-    this.exibirModalBootstrap(); 
+    this.exibirModalBootstrap();
   }
-  
+
   editar(item: ItemEstoque): void { this.formEstoque.patchValue(item); this.exibirModalBootstrap(); }
 
 salvarItem(): void {
     if (this.formEstoque.invalid) return;
 
     const rawValues = this.formEstoque.value;
-    
+
     // Ajuste aqui: adicionamos o campo 'model' e forçamos 'usuarioId' para string
     const itemParaEnviar = {
       ...rawValues,
@@ -124,20 +162,59 @@ salvarItem(): void {
     });
   }
 
-  excluir(id: number, nome: string): void {
-    Swal.fire({ title: 'Remover?', text: `Remover ${nome}?`, icon: 'warning', showCancelButton: true }).then(result => {
-      if (result.isConfirmed) this.estoqueService.excluir(id).subscribe(() => this.carregarEstoque());
+ excluir(id: number, nome: string): void {
+  Swal.fire({
+    title: 'Excluir produto?',
+    text: `Deseja realmente excluir "${nome}"?`,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonText: 'Sim, excluir',
+    cancelButtonText: 'Cancelar'
+  }).then(result => {
+    if (!result.isConfirmed) return;
+
+    this.estoqueService.excluir(id).subscribe({
+      next: () => {
+        this.carregarEstoque();
+
+        Swal.fire({
+          icon: 'success',
+          title: 'Produto excluído com sucesso!',
+          timer: 1500,
+          showConfirmButton: false
+        });
+      },
+      error: (err) => {
+        if (err.status === 409) {
+          Swal.fire({
+            icon: 'info',
+            title: 'Produto com histórico',
+            text: err.error?.mensagem ||
+              'Este produto possui movimentações registradas e não pode ser excluído.',
+            confirmButtonText: 'Entendi'
+          });
+          return;
+        }
+
+        Swal.fire({
+          icon: 'error',
+          title: 'Erro ao excluir',
+          text: err.error?.mensagem ||
+            'Não foi possível excluir o produto.'
+        });
+      }
     });
-  }
+  });
+}
 
   // --- PAGINAÇÃO ---
   get totalPaginas(): number { return Math.ceil(this.itensFiltrados.length / this.itensPorPagina) || 1; }
   get itensPaginados(): ItemEstoque[] { return this.itensFiltrados.slice((this.paginaAtual - 1) * this.itensPorPagina, this.paginaAtual * this.itensPorPagina); }
-  
+
   paginaAnterior(): void { if (this.paginaAtual > 1) this.paginaAtual--; }
   proximaPagina(): void { if (this.paginaAtual < this.totalPaginas) this.paginaAtual++; }
   irParaPagina(pagina: number | string): void { if (typeof pagina === 'number') this.paginaAtual = pagina; }
-  
+
   get paginasVisiveis(): (number | string)[] {
     let paginas: (number | string)[] = [];
     for (let i = 1; i <= this.totalPaginas; i++) paginas.push(i);

@@ -75,15 +75,35 @@ export class LancamentoService {
 
 
 
-getGastosCategoria(): Observable<any[]> {
-    return this.http.get<any[]>(`${this.apiUrl}/gastos-categoria`);
-  }
+getGastosCategoria(mes: number, ano: number): Observable<any[]> {
+
+  return this.getHeaders().pipe(
+    switchMap(headers => {
+
+      const params = new HttpParams()
+        .set('mes', mes.toString())
+        .set('ano', ano.toString());
+
+      return this.http.get<any[]>(
+        `${this.apiUrl}/gastos-categoria`,
+        {
+          headers,
+          params
+        }
+      );
+    })
+  );
+}
 
   getGastosAnuaisPorCategoria(): Observable<any[]> {
-    return this.http.get<any[]>(`${this.apiUrl}/gastos-anuais`);
+    return this.getHeaders().pipe(
+      switchMap(headers =>
+        this.http.get<any[]>(`${this.apiUrl}/gastos-anuais`, { headers })
+      )
+    );
   }
 
-  
+
   excluir(id: number): Observable<void> {
 
     return this.getHeaders().pipe(
@@ -107,9 +127,9 @@ listarPaginado(page: number, pageSize: number): Observable<{ items: Lancamento[]
         .set('pageSize', pageSize.toString());
 
       // Faz a chamada passando os parâmetros e os headers
-      return this.http.get<{ items: Lancamento[], total: number }>(this.apiUrl, { 
-        headers, 
-        params 
+      return this.http.get<{ items: Lancamento[], total: number }>(this.apiUrl, {
+        headers,
+        params
       });
     })
   );

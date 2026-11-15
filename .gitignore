@@ -38,3 +38,29 @@ yarn-error.log*
 *.sql
 *.log
 .env
+# Segredos e configurações privadas
+.env.*
+!.env.example
+**/appsettings.Production.json
+**/appsettings.*.local.json
+*.pem
+*.key
+*.pfx
+*.p12
+
+# Backups e arquivos temporários
+*.bak
+*.bak-*
+*.pre-*
+*.Backup.tmp
+*.rar
+*.zip
+*.tar.gz
+**/certbot/
+**/PublishProfiles/
+
+# Python
+**/__pycache__/
+*.py[cod]
+**/.venv/
+**/venv/

@@ -18,7 +18,7 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
         });
         return next(authReq);
       }
-      
+
       // Se não tiver token (ex: tela de login), segue a requisição original
       return next(req);
     })

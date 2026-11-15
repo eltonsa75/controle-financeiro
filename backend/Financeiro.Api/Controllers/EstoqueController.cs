@@ -29,7 +29,7 @@ namespace FinanceiroApi.Controllers
             var estoque = await _context.Estoques
                 .Include(e => e.Categoria) // Traz os dados da categoria associada
                 .AsNoTracking()
-                .Where(e => e.UsuarioId == usuarioId)
+                .Where(e => e.UsuarioId == usuarioId && e.Ativo)
                 .OrderBy(e => e.Nome)
                 .ToListAsync();
 
@@ -60,25 +60,57 @@ namespace FinanceiroApi.Controllers
         }
 
         // PUT: api/estoque/5
-        [HttpPut("{id}")]
+        [HttpPut("{id:int}")]
         public async Task<IActionResult> PutEstoque(int id, [FromBody] Estoque model)
         {
             var usuarioId = ObtemUsuarioId();
-            if (id != model.Id) return BadRequest("O ID informado não corresponde ao objeto enviado.");
 
-            var itemExiste = await _context.Estoques.AnyAsync(e => e.Id == id && e.UsuarioId == usuarioId);
-            if (!itemExiste) return NotFound("Item não encontrado no seu estoque.");
+            if (id <= 0 || id != model.Id)
+            {
+                return BadRequest(new
+                {
+                    mensagem = "O código informado não corresponde ao produto."
+                });
+            }
 
-            model.UsuarioId = usuarioId;
+            // Busca o produto existente e mantém o rastreamento pelo EF
+            var item = await _context.Estoques
+                .FirstOrDefaultAsync(e =>
+                    e.Id == id &&
+                    e.UsuarioId == usuarioId &&
+                    e.Ativo);
+
+            if (item == null)
+            {
+                return NotFound(new
+                {
+                    mensagem = "Produto não encontrado ou inativo."
+                });
+            }
+
             ModelState.Remove(nameof(model.UsuarioId));
             ModelState.Remove(nameof(model.Categoria));
 
-            if (!ModelState.IsValid) return BadRequest(ModelState);
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
 
-            _context.Entry(model).State = EntityState.Modified;
+            // Atualiza somente os campos editáveis
+            item.Nome = model.Nome;
+            item.QuantidadeMinima = model.QuantidadeMinima;
+            item.UnidadeMedida = model.UnidadeMedida;
+            item.CategoriaId = model.CategoriaId;
+
+            // Preserva os dados controlados pelo sistema:
+            // item.Id
+            // item.UsuarioId
+            // item.Ativo
+            // item.QuantidadeAtual
+
             await _context.SaveChangesAsync();
 
-            return Ok(model);
+            return Ok(item);
         }
 
         // 🎯 DIFERENCIAL: Atualização rápida de quantidade (+1 ou -1) direto na linha da tabela
@@ -100,17 +132,78 @@ namespace FinanceiroApi.Controllers
         }
 
         // DELETE: api/estoque/5
-        [HttpDelete("{id}")]
+        [HttpDelete("{id:int}")]
         public async Task<IActionResult> DeleteEstoque(int id)
         {
             var usuarioId = ObtemUsuarioId();
-            var item = await _context.Estoques.FirstOrDefaultAsync(e => e.Id == id && e.UsuarioId == usuarioId);
 
-            if (item == null) return NotFound("Item não encontrado ou sem permissão para exclusão.");
+            if (id <= 0)
+            {
+                return BadRequest(new
+                {
+                    mensagem = "Código do produto inválido."
+                });
+            }
 
-            _context.Estoques.Remove(item);
-            await _context.SaveChangesAsync();
-            return NoContent();
+            // Localiza o produto do usuário autenticado
+            var item = await _context.Estoques
+                .FirstOrDefaultAsync(e =>
+                    e.Id == id &&
+                    e.UsuarioId == usuarioId);
+
+            if (item == null)
+            {
+                return NotFound(new
+                {
+                    mensagem = "Produto não encontrado no seu estoque."
+                });
+            }
+
+            if (!item.Ativo)
+            {
+                return Conflict(new
+                {
+                    mensagem = "Este produto já foi removido do estoque."
+                });
+            }
+
+            // Exclusão lógica: mantém o produto no banco
+            item.Ativo = false;
+
+            // Registra a exclusão no histórico
+            var movimentacao = new EstoqueMovimentacao
+            {
+                EstoqueId = item.Id,
+                UsuarioId = usuarioId,
+
+                Tipo = "Exclusao",
+                Origem = "Manual",
+
+                Quantidade = 0,
+                QuantidadeAnterior = item.QuantidadeAtual,
+                QuantidadePosterior = item.QuantidadeAtual,
+
+                DataMovimentacao = DateTime.UtcNow,
+
+                Observacao = $"Produto '{item.Nome}' removido da lista de estoque."
+            };
+
+            _context.EstoqueMovimentacoes.Add(movimentacao);
+
+            try
+            {
+                // Salva a exclusão lógica e o histórico juntos
+                await _context.SaveChangesAsync();
+
+                return NoContent();
+            }
+            catch (DbUpdateException)
+            {
+                return StatusCode(500, new
+                {
+                    mensagem = "Não foi possível registrar a exclusão do produto."
+                });
+            }
         }
 
         // Método auxiliar privado para extrair a identidade do Firebase de forma limpa

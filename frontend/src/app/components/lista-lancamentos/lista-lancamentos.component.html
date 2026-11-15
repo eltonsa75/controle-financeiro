@@ -42,11 +42,12 @@
                 </div>
               </td>
               <td>
-                <span class="badge rounded-pill bg-light text-dark border shadow-sm" style="font-size: 0.75rem;">
-                  <i class="bi bi-tag-fill text-primary me-1"></i>
-                  {{ item.categoria?.nome || 'Geral' }}
+                <span class="badge rounded-pill bg-light text-dark border shadow-sm"
+                      style="font-size: 0.75rem;">
+                    <i class="bi bi-tag-fill text-primary me-1"></i>
+                    {{ item.categoriaRef?.nome || 'Geral' }}
                 </span>
-              </td>
+            </td>
               <td>
                 <span class="badge" [ngClass]="item.tipo.toLowerCase() === 'receita' ? 'bg-success' : 'bg-danger'" style="font-size: 0.7rem;">
                   {{ item.tipo | uppercase }}
@@ -96,7 +97,7 @@
 <div class="modal fade" [class.show]="exibirModal" [style.display]="exibirModal ? 'block' : 'none'" tabindex="-1" role="dialog">
   <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
     <div class="modal-content border-0 shadow-lg" style="border-radius: 16px;">
-      
+
       <div class="modal-header bg-primary text-white py-3" style="border-top-left-radius: 16px; border-top-right-radius: 16px;">
         <h5 class="modal-title fw-bold d-flex align-items-center gap-2">
           <i class="bi bi-receipt-cutoff"></i> Itens do Lançamento
@@ -105,7 +106,7 @@
       </div>
 
       <div class="modal-body p-4" *ngIf="itemSelecionado">
-        
+
         <div class="row g-3 mb-4 bg-light p-3 rounded-3 border">
           <div class="col-md-6">
             <label class="text-muted text-uppercase fw-bold mb-1 d-block" style="font-size: 0.7rem; letter-spacing: 0.5px;">Estabelecimento / Descrição</label>
@@ -149,6 +150,31 @@
               </tr>
             </tbody>
           </table>
+        </div>
+
+        <div class="mt-4 p-3 bg-light rounded-3 border" *ngIf="itemSelecionado.subtotal != null || itemSelecionado.desconto != null">
+          <h6 class="fw-bold text-secondary mb-3">
+            <i class="bi bi-calculator me-2"></i>Resumo Financeiro
+          </h6>
+
+          <div class="d-flex justify-content-between mb-2" *ngIf="itemSelecionado.subtotal != null">
+            <span>Subtotal</span>
+            <span class="fw-semibold">{{ itemSelecionado.subtotal | currency:'BRL' }}</span>
+          </div>
+
+          <div class="d-flex justify-content-between mb-2 text-success" *ngIf="itemSelecionado.desconto != null">
+            <span>Desconto</span>
+            <span class="fw-semibold">- {{ itemSelecionado.desconto | currency:'BRL' }}</span>
+          </div>
+
+          <hr class="my-2">
+
+          <div class="d-flex justify-content-between align-items-center">
+            <span class="fw-bold">Total Pago</span>
+            <span class="fs-5 fw-bold text-primary">
+              {{ (itemSelecionado.valor < 0 ? -itemSelecionado.valor : itemSelecionado.valor) | currency:'BRL' }}
+            </span>
+          </div>
         </div>
 
       </div> <div class="modal-footer bg-light border-top-0 py-2.5" style="border-bottom-left-radius: 16px; border-bottom-right-radius: 16px;">

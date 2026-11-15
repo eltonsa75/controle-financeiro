@@ -14,7 +14,7 @@ export const appConfig: ApplicationConfig = {
     provideZoneChangeDetection({ eventCoalescing: true }),
     provideRouter(routes),
     provideHttpClient(withInterceptors([authInterceptor])),
-    
+
     // Configuração única e segura do Firebase
     provideFirebaseApp(() => {
       if (!environment.firebase || !environment.firebase.apiKey) {

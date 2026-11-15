@@ -11,9 +11,9 @@ export interface Lancamento {
   dataImportacao?: Date;
   tipo: string;
   categoriaId: number;
-  
+
   // ADICIONE ESTA LINHA:
-  categoria?: Categoria; 
-  
+  categoria?: Categoria;
+
   itens?: any[]; // ou a interface de itens que você já tiver
 }

@@ -8,7 +8,7 @@ import { Router, RouterModule } from '@angular/router';
   selector: 'app-login',
   standalone: true,
   // Certifique-se de que FormsModule está aqui!
-  imports: [CommonModule, FormsModule, RouterModule], 
+  imports: [CommonModule, FormsModule, RouterModule],
   templateUrl: './login.component.html',
   styleUrl: './login.component.css'
 })
@@ -27,10 +27,10 @@ export class LoginComponent {
       console.log('Tentando logar...');
       await this.authService.login(this.email, this.senha);
       console.log('Logado com sucesso!');
-      
+
       // Mudar para a rota correta após o login
-      this.router.navigate(['/compras']); 
-      
+      this.router.navigate(['/compras']);
+
     } catch (e: any) {
       console.error(e);
       // Firebase costuma retornar erros no formato { code: 'auth/invalid-email' }
