@@ -3,7 +3,7 @@
 
   <!-- CABEÇALHO E NAVEGAÇÃO -->
   <div class="row mb-4 align-items-center g-3">
-    <div class="col-md-5 d-flex align-items-center gap-2">
+    <div class="col-12 d-flex align-items-center justify-content-center gap-2">
       <button
         class="btn btn-outline-primary d-flex align-items-center gap-2"
         (click)="alterarMes(-1)">
@@ -23,8 +23,8 @@
       </button>
     </div>
 
-    <!-- IMPORTAÇÃO DE NOTA FISCAL -->
-    <div class="col-md-7 d-flex justify-content-end">
+    <!-- IMPORTAÇÃO DE NOTA FISCAL - OCULTA TEMPORARIAMENTE -->
+<div class="col-md-7 d-none justify-content-end">
       <div
         class="input-group shadow-sm"
         style="max-width: 480px; width: 100%;">
@@ -259,7 +259,7 @@
                 class="fas fa-chart-pie fa-2x mb-3 d-block opacity-50">
               </i>
 
-              {{ categoriasMensagem }}
+             
             </div>
 
           </div>

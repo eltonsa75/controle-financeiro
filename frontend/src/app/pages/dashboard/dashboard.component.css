@@ -237,3 +237,208 @@ canvas#canvasCarosRef {
 [data-tooltip]:hover:before {
   opacity: 1;
 }
+
+
+/* ==========================================
+   RESP-004 — Dashboard Responsivo
+   ========================================== */
+
+/* Identidade visual roxa */
+.btn-outline-primary {
+  color: #6d28d9;
+  border-color: #6d28d9;
+}
+
+.btn-outline-primary:hover,
+.btn-outline-primary:focus-visible {
+  background-color: #6d28d9;
+  border-color: #6d28d9;
+  color: #fff;
+}
+
+.text-primary {
+  color: #6d28d9 !important;
+}
+
+/* Tablets e smartphones */
+@media (max-width: 1023px) {
+  :host > .container-fluid {
+    padding-top: 64px !important;
+  }
+}
+
+/* Smartphones */
+@media (max-width: 575px) {
+  :host > .container-fluid {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  /* Navegação de meses */
+  :host > .container-fluid > .row:first-child > .col-md-5 {
+    display: grid !important;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 6px !important;
+  }
+
+  :host > .container-fluid > .row:first-child > .col-md-5 > h3 {
+    min-width: 0 !important;
+    font-size: 1rem !important;
+    line-height: 1.3;
+    overflow-wrap: anywhere;
+  }
+
+  :host > .container-fluid > .row:first-child > .col-md-5 > button {
+    padding: 8px;
+    font-size: 0.75rem;
+    white-space: nowrap;
+  }
+
+  /* Importação de nota fiscal */
+  :host > .container-fluid > .row:first-child > .col-md-7 > .input-group {
+    display: flex;
+    flex-wrap: wrap;
+    max-width: 100% !important;
+  }
+
+  :host > .container-fluid > .row:first-child > .col-md-7 .input-group-text {
+    flex: 0 0 auto;
+  }
+
+  :host > .container-fluid > .row:first-child > .col-md-7 input {
+    min-width: 0;
+    flex: 1 1 0;
+  }
+
+  :host > .container-fluid > .row:first-child > .col-md-7 button {
+    width: 100%;
+    justify-content: center;
+    margin-top: 8px;
+    border-radius: 6px !important;
+  }
+}
+
+
+/* ==========================================
+   RESP-004 — Indicadores financeiros
+   ========================================== */
+
+/* Evita que valores monetários ultrapassem os cards */
+.card-body .fs-3 {
+  font-size: clamp(1.2rem, 2.5vw, 1.75rem) !important;
+  overflow-wrap: anywhere;
+}
+
+/* Smartphones */
+@media (max-width: 575px) {
+  /* Cards financeiros */
+  .container-fluid > .row:nth-of-type(2) > div {
+    margin-bottom: 12px !important;
+  }
+
+  .container-fluid > .row:nth-of-type(2) .card {
+    border-radius: 12px;
+  }
+
+  .container-fluid > .row:nth-of-type(2) .card-body {
+    padding: 12px 14px;
+  }
+
+  /* Valores financeiros */
+  .container-fluid > .row:nth-of-type(2) .fs-3 {
+    font-size: 1.5rem !important;
+    line-height: 1.3;
+  }
+
+  /* Ícones dos indicadores */
+  .container-fluid > .row:nth-of-type(2) .fa-2x {
+    font-size: 1.5rem;
+  }
+}
+
+/* Tablets */
+@media (min-width: 576px) and (max-width: 1023px) {
+  .container-fluid > .row:nth-of-type(2) .fs-3 {
+    font-size: 1.4rem !important;
+  }
+}
+
+
+/* ==========================================
+   RESP-004 — Gráficos responsivos
+   ========================================== */
+
+/* Permite que os gráficos se ajustem aos cards */
+.chart-area,
+.chart-pie,
+.chart-bar {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.chart-area canvas,
+.chart-pie canvas,
+.chart-bar canvas {
+  display: block;
+  max-width: 100%;
+}
+
+/* Smartphones */
+@media (max-width: 575px) {
+  /* Evita que os cards ultrapassem a tela */
+  .container-fluid .card {
+    min-width: 0;
+  }
+
+  .container-fluid .card-body {
+    min-width: 0;
+  }
+
+  /* Evolução Financeira */
+  .chart-area {
+    height: 260px !important;
+  }
+
+  /* Distribuição por Categoria */
+  .chart-pie {
+    height: 260px !important;
+  }
+
+  /* Top 10 Itens Mais Caros */
+  .chart-bar {
+    height: 320px !important;
+  }
+
+  /* Títulos dos gráficos */
+  .card-header h6 {
+    font-size: 0.8rem !important;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+  }
+
+  /* Espaçamento interno */
+  .chart-area,
+  .chart-pie,
+  .chart-bar {
+    overflow: hidden;
+  }
+}
+
+/* Tablets */
+@media (min-width: 576px) and (max-width: 1023px) {
+  .chart-area {
+    height: 300px !important;
+  }
+
+  .chart-pie {
+    height: 280px !important;
+  }
+
+  .chart-bar {
+    height: 340px !important;
+  }
+}
+
+
