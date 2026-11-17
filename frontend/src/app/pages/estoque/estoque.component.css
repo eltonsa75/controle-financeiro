@@ -53,3 +53,287 @@
   font-weight: bold;
   font-size: 1.1rem;
 }
+
+
+/* ==========================================
+   RESPONSIVIDADE — ESTOQUE & DESPENSA
+   ========================================== */
+
+/* Identidade visual */
+:host {
+  display: block;
+  min-width: 0;
+}
+
+.btn-primary {
+  background-color: #6d28d9;
+  border-color: #6d28d9;
+}
+
+.btn-primary:hover {
+  background-color: #5b21b6;
+  border-color: #5b21b6;
+}
+
+.btn-primary:focus-visible {
+  box-shadow: 0 0 0 0.25rem rgba(109, 40, 217, 0.25);
+}
+
+/* Cards */
+.card {
+  border-radius: 12px;
+}
+
+.card-body {
+  min-width: 0;
+}
+
+/* Tabela */
+.table-responsive {
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.table {
+  min-width: 720px;
+}
+
+/* Tablets e smartphones */
+@media (max-width: 1023px) {
+  .container {
+    max-width: 100%;
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .container > .d-flex:first-child {
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+
+  .container > .d-flex:first-child > div {
+    min-width: 0;
+    flex: 1 1 280px;
+  }
+
+  .container > .d-flex:first-child > button {
+    flex: 0 1 auto;
+  }
+
+  h2 {
+    font-size: 1.5rem;
+    line-height: 1.3;
+  }
+
+  .card-body {
+    padding: 16px;
+  }
+}
+
+/* Smartphones */
+@media (max-width: 575px) {
+  .container {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .container > .d-flex:first-child {
+    flex-direction: column;
+    align-items: stretch !important;
+  }
+
+  .container > .d-flex:first-child > div {
+    flex: 0 1 auto;
+    width: 100%;
+  }
+
+  .container > .d-flex:first-child > button {
+    width: 100%;
+    min-height: 44px;
+  }
+
+  h2 {
+    font-size: 1.25rem;
+  }
+
+  .row.g-3 .card-body {
+    padding: 14px;
+  }
+
+  .table-responsive {
+    border-radius: 10px;
+  }
+
+  .pagination {
+    flex-wrap: wrap;
+    justify-content: center !important;
+    gap: 4px;
+  }
+
+  .pagination .page-link {
+    padding: 8px 10px;
+  }
+
+  #modalEstoque .modal-dialog {
+    margin: 12px;
+  }
+
+  #modalEstoque .modal-content {
+    border-radius: 12px;
+  }
+}
+
+
+/* Identidade visual do modal de estoque */
+#modalEstoque .modal-header {
+  background-color: #6d28d9 !important;
+  color: #ffffff;
+}
+
+/* O modal deve aparecer acima do botão hambúrguer */
+@media (max-width: 1023px) {
+  :host-context(body.modal-open) .btn-menu-mobile {
+    visibility: hidden;
+  }
+}
+
+
+/* ==========================================
+   CARDS DE ESTOQUE — SMARTPHONE
+   ========================================== */
+
+/* Desktop e tablet: manter a tabela */
+.estoque-mobile-cards {
+  display: none;
+}
+
+/* Smartphone: mostrar cards e ocultar tabela */
+@media (max-width: 575px) {
+  .estoque-mobile-cards {
+    display: grid;
+    gap: 14px;
+    padding: 12px;
+  }
+
+  .table-responsive > .table {
+    display: none;
+  }
+
+  .estoque-item-card {
+    background: #ffffff;
+    border: 1px solid #e9e5f2;
+    border-radius: 12px;
+    padding: 16px;
+    box-shadow: 0 2px 8px rgba(31, 41, 55, 0.06);
+  }
+
+  .estoque-item-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  .estoque-item-nome {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #1f2937;
+    margin: 0 0 4px;
+    overflow-wrap: anywhere;
+  }
+
+  .estoque-item-categoria {
+    font-size: 0.8rem;
+    color: #6b7280;
+  }
+
+  .estoque-item-status {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 20px;
+    padding: 5px 10px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .status-faltando {
+    background: #fee2e2;
+    color: #b91c1c;
+  }
+
+  .status-baixo {
+    background: #fef3c7;
+    color: #92400e;
+  }
+
+  .status-disponivel {
+    background: #dcfce7;
+    color: #166534;
+  }
+
+  .estoque-item-dados {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .estoque-item-dados > div {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+  }
+
+  .estoque-item-dados small {
+    font-size: 0.75rem;
+    color: #6b7280;
+  }
+
+  .estoque-item-dados strong {
+    font-size: 1rem;
+    color: #1f2937;
+    overflow-wrap: anywhere;
+  }
+
+  .estoque-item-footer {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    border-top: 1px solid #f0edf5;
+    padding-top: 14px;
+  }
+
+  .estoque-quantidade-acoes,
+  .estoque-edicao-acoes {
+    display: flex;
+    gap: 8px;
+  }
+
+  .estoque-item-footer .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
+    border-radius: 9px;
+  }
+
+  .estoque-edicao-acoes .btn-outline-primary {
+    color: #6d28d9;
+    border-color: #6d28d9;
+  }
+
+  .estoque-edicao-acoes .btn-outline-primary:hover {
+    background-color: #6d28d9;
+    color: #ffffff;
+  }
+}
+
+

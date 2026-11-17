@@ -68,6 +68,93 @@
   <div class="card shadow-sm border-0 bg-white">
     <div class="card-body p-0">
       <div class="table-responsive" *ngIf="itensFiltrados.length > 0; else semItens">
+
+<!-- Cards de estoque para smartphones -->
+<div class="estoque-mobile-cards">
+  <article
+    class="estoque-item-card"
+    *ngFor="let item of itensPaginados">
+
+    <div class="estoque-item-header">
+      <div>
+        <h3 class="estoque-item-nome">{{ item.nome }}</h3>
+        <span class="estoque-item-categoria">
+          {{ item.categoria?.nome || 'Não Categorizado' }}
+        </span>
+      </div>
+
+      <span
+        class="estoque-item-status"
+        [ngClass]="{
+          'status-faltando': item.quantidadeAtual <= 0,
+          'status-baixo': item.quantidadeAtual > 0 &&
+                          item.quantidadeAtual <= item.quantidadeMinima,
+          'status-disponivel': item.quantidadeAtual > item.quantidadeMinima
+        }">
+        {{ getStatus(item) }}
+      </span>
+    </div>
+
+    <div class="estoque-item-dados">
+      <div>
+        <small>Quantidade atual</small>
+        <strong>
+          {{ item.quantidadeAtual | number:'1.0-2' }}
+          {{ item.unidadeMedida }}
+        </strong>
+      </div>
+
+      <div>
+        <small>Mínimo crítico</small>
+        <strong>
+          {{ item.quantidadeMinima | number:'1.0-2' }}
+          {{ item.unidadeMedida }}
+        </strong>
+      </div>
+    </div>
+
+    <div class="estoque-item-footer">
+      <div class="estoque-quantidade-acoes">
+        <button
+          type="button"
+          class="btn btn-outline-secondary"
+          (click)="ajustarQtd(item, -1)"
+          [disabled]="item.quantidadeAtual <= 0"
+          aria-label="Diminuir quantidade">
+          <i class="bi bi-dash-lg"></i>
+        </button>
+
+        <button
+          type="button"
+          class="btn btn-outline-secondary"
+          (click)="ajustarQtd(item, 1)"
+          aria-label="Aumentar quantidade">
+          <i class="bi bi-plus-lg"></i>
+        </button>
+      </div>
+
+      <div class="estoque-edicao-acoes">
+        <button
+          type="button"
+          class="btn btn-outline-primary"
+          (click)="editar(item)"
+          aria-label="Editar produto">
+          <i class="bi bi-pencil"></i>
+        </button>
+
+        <button
+          type="button"
+          class="btn btn-outline-danger"
+          (click)="excluir(item.id, item.nome)"
+          aria-label="Excluir produto">
+          <i class="bi bi-trash"></i>
+        </button>
+      </div>
+    </div>
+
+  </article>
+</div>
+
         <table class="table table-hover align-middle mb-0">
           <thead class="table-light">
             <tr>

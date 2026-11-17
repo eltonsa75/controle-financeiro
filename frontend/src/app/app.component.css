@@ -1,23 +1,114 @@
-.wrapper-layout {
-  display: flex;
-  min-height: 100vh;
-  width: 100%;
-  background-color: #f8f9fa; /* Garante o fundo claro padrão do sistema */
-  overflow: hidden;
+
+:host {
+  display: block;
 }
 
-/* O PULO DO GATO: Força a tag do Angular a se comportar como um bloco real */
+/* Estrutura principal */
+.wrapper-layout {
+  display: flex;
+  width: 100%;
+  min-height: 100vh;
+  background-color: #f8f7fc;
+}
+
 app-sidebar {
   display: block;
-  transition: none;
+  flex-shrink: 0;
   height: 100vh;
-  flex-shrink: 0; /* Impede que o dashboard "esmague" a largura da sidebar */
 }
 
 .content-container {
-  flex-grow: 1;
+  flex: 1;
+  min-width: 0;
   height: 100vh;
-  overflow-y: auto; /* Se o dashboard for grande, só ele vai ter barra de rolagem */
-  padding: 0;
+  overflow-y: auto;
 }
 
+/* Oculto no desktop */
+.btn-menu-mobile {
+  display: none;
+}
+
+.menu-overlay {
+  display: none;
+}
+
+/* Layout para smartphones */
+@media (max-width: 1023px){
+  .wrapper-layout {
+    display: block;
+    min-height: 100dvh;
+  }
+
+  app-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 1050;
+    width: 260px;
+    height: 100dvh;
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+  }
+
+  app-sidebar.mobile-open {
+    transform: translateX(0);
+  }
+
+
+.content-container {
+  width: 100%;
+  min-height: 100dvh;
+  height: auto;
+  overflow-x: hidden;
+  padding-top: 72px;
+}
+
+
+
+.btn-menu-mobile {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  z-index: 1060;
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 10px;
+  background-color: #5b21b6;
+  color: #fff;
+  font-size: 1.5rem;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  transition: background-color 0.2s ease;
+}
+
+/* Quando o menu estiver aberto, posicionar o botão de fechar
+   no canto superior direito do menu */
+.btn-menu-mobile:has(.bi-x-lg) {
+  left: 208px;
+}
+
+
+  .menu-overlay {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 1040;
+    background-color: rgba(15, 23, 42, 0.55);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  app-sidebar {
+    transition: none;
+  }
+}
+
+/* Esconde o botão de navegação enquanto um modal Bootstrap está aberto */
+:host-context(body.modal-open) .btn-menu-mobile {
+  display: none;
+}

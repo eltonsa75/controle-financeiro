@@ -1,24 +1,77 @@
+
 .sidebar {
-  width: 100%;       /* Ocupa os 250px que o Angular reservou no styles.css */
-  height: 100%;      /* Ocupa os 100vh de altura total da tela */
-  background: #6a11cb;
-  background: linear-gradient(180deg, #6a11cb 0%, #2575fc 100%);
-  box-shadow: 4px 0 10px rgba(0,0,0,0.1);
+  width: 100%;
+  height: 100%;
+  min-height: 100vh;
+  box-sizing: border-box;
+  background: linear-gradient(180deg, #5b21b6 0%, #4338ca 100%);
+  box-shadow: 4px 0 16px rgba(31, 41, 55, 0.12);
+}
+
+.logo {
+  padding-top: 8px;
+  padding-bottom: 8px;
 }
 
 .nav-link {
-  border-radius: 8px;
-  margin-bottom: 10px;
-  transition: 0.3s;
+  border-radius: 10px;
+  margin-bottom: 8px;
+  padding: 12px 14px;
+  transition: background-color 0.2s ease, transform 0.2s ease;
   font-weight: 500;
+  font-size: 0.94rem;
 }
 
-.nav-link:hover, .nav-link.active {
-  background-color: rgba(255, 255, 255, 0.2);
-  transform: translateX(5px);
+.nav-link:hover {
+  background-color: rgba(255, 255, 255, 0.12);
+}
+
+.nav-link.active {
+  background-color: rgba(255, 255, 255, 0.22);
+  font-weight: 600;
+}
+
+.nav-link i {
+  font-size: 1.1rem;
 }
 
 .text-accent {
-  color: #00d4ff;
+  color: #c4b5fd;
+}
+
+.logout button {
+  padding: 10px 12px !important;
+  border-radius: 10px;
+  transition: background-color 0.2s ease;
+}
+
+.logout button:hover {
+  background-color: rgba(255, 255, 255, 0.12);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-link,
+  .logout button {
+    transition: none;
+  }
+}
+
+
+/* Cabeçalho do menu em smartphones e tablets */
+@media (max-width: 1023px) {
+  .logo {
+    justify-content: flex-start !important;
+    padding-right: 35px !important;
+  }
+
+  .logo h5 {
+    font-size: 0.95rem !important;
+    white-space: nowrap;
+    letter-spacing: -0.6px !important;
+  }
+
+  .logo i {
+    font-size: 1rem !important;
+  }
 }
 

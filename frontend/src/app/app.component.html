@@ -1,10 +1,41 @@
+
 <div class="wrapper-layout" *ngIf="mostrarSidebar">
-  <app-sidebar></app-sidebar>
+
+  <!-- Botão para abrir o menu no smartphone -->
+  <button
+    type="button"
+    class="btn-menu-mobile"
+    (click)="abrirFecharMenuMobile()"
+    [attr.aria-expanded]="menuMobileAberto"
+    aria-controls="menu-lateral"
+    aria-label="Abrir ou fechar menu"
+  >
+    <i class="bi"
+       [ngClass]="menuMobileAberto ? 'bi-x-lg' : 'bi-list'">
+    </i>
+  </button>
+
+  <!-- Fundo escurecido quando o menu estiver aberto -->
+  <div
+    *ngIf="menuMobileAberto"
+    class="menu-overlay"
+    (click)="fecharMenuMobile()">
+  </div>
+
+  <!-- Menu lateral -->
+  <app-sidebar
+    id="menu-lateral"
+    [class.mobile-open]="menuMobileAberto">
+  </app-sidebar>
+
+  <!-- Conteúdo principal -->
   <div class="content-container">
     <router-outlet></router-outlet>
   </div>
+
 </div>
 
+<!-- Login e outras páginas sem menu lateral -->
 <div *ngIf="!mostrarSidebar">
   <router-outlet></router-outlet>
 </div>
