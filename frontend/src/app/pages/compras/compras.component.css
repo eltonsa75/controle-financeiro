@@ -173,11 +173,13 @@
 }
 
 .item-linha .input-group .form-select {
-  border: none !important;
-  background-color: #f8f9fa;
   width: 70px;
+  max-width: 70px;
+  flex: 0 0 70px;
+  min-width: 0;
+  padding-left: 6px;
+  padding-right: 18px;
   font-size: 0.8rem;
-  border-radius: 0;
 }
 
 /* Card de Comparativo */
@@ -244,3 +246,203 @@
 
 .btn-salvar { background: #0d6efd; color: white; padding: 12px 25px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; }
 .btn-limpar { background: #6c757d; color: white; padding: 12px 25px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; }
+
+
+/* RESP-003 — Identidade visual */
+.legenda-compras {
+  background: #5b21b6;
+}
+
+/* Tablets */
+@media (min-width: 576px) and (max-width: 1023px) {
+  .compras-container {
+    max-width: 100%;
+    padding: 16px;
+  }
+
+  .tabela-compras {
+    overflow-x: auto;
+  }
+
+  .legenda-compras,
+  .item-linha {
+    min-width: 850px;
+  }
+}
+
+/* Smartphones */
+@media (max-width: 575px) {
+  .compras-container {
+    width: 100%;
+    max-width: 100%;
+    padding: 12px;
+    min-width: 0;
+  }
+
+  .compras-container .row {
+    margin-left: 0;
+    margin-right: 0;
+  }
+
+  .monitor-saldo {
+    gap: 12px;
+    padding: 12px;
+  }
+
+  .saldo-item .valor,
+  .saldo-item .valor-restante {
+    font-size: 1rem;
+    overflow-wrap: anywhere;
+  }
+
+  .legenda-compras {
+    display: none;
+  }
+
+  .tabela-compras {
+    background: transparent;
+    border: none;
+    overflow: visible;
+  }
+
+  .item-linha {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 12px;
+    min-width: 0;
+    min-height: 0;
+    margin-bottom: 14px;
+    padding: 16px;
+    border: 1px solid #e9e5f3;
+    border-left: 4px solid #6d28d9;
+    border-radius: 12px;
+    box-shadow: 0 3px 12px rgba(0,0,0,.05);
+  }
+
+  .item-linha > div {
+    min-width: 0;
+  }
+
+  .item-linha .col-check {
+    grid-column: 1 / -1;
+    width: auto;
+    padding: 0;
+  }
+
+  .item-linha .col-nome {
+    grid-column: 1 / -1;
+    width: 100%;
+    height: auto;
+  }
+
+  .item-linha .col-nome > div {
+    flex-direction: column;
+    align-items: stretch !important;
+  }
+
+  .item-linha .seletor-categoria-item {
+    width: 100%;
+    min-width: 0 !important;
+    flex: none !important;
+  }
+
+  .item-linha .col-qtd,
+  .item-linha .col-preco {
+    width: 100%;
+    padding: 0;
+  }
+
+  .item-linha .col-qtd {
+    grid-column: 1;
+  }
+
+  .item-linha .col-preco {
+    grid-column: 2;
+  }
+
+  .item-linha .col-qtd::before,
+  .item-linha .col-preco::before {
+    display: block;
+    margin-bottom: 6px;
+    font-size: .75rem;
+    font-weight: 600;
+    color: #6b7280;
+  }
+
+  .item-linha .col-qtd::before {
+    content: "Qtd / Medida";
+  }
+
+  .item-linha .col-preco::before {
+    content: "Preço Unit. (R$)";
+  }
+
+  .item-linha .input-group {
+    width: 100%;
+    flex-wrap: nowrap;
+  }
+
+  .item-linha .input-group input {
+    width: 0;
+    min-width: 0;
+    flex: 1 1 0;
+  }
+
+  .item-linha .input-group .form-select {
+    width: 60px;
+    max-width: 60px;
+    flex: 0 0 60px;
+  }
+
+  .item-linha .col-subtotal {
+    grid-column: 1 / -1;
+    width: 100%;
+    padding: 12px 0 0;
+    border-top: 1px solid #e9e5f3;
+    color: #5b21b6;
+    font-size: 1.1rem;
+  }
+
+  .item-linha .col-subtotal::before {
+    content: "Subtotal";
+    display: block;
+    margin-bottom: 4px;
+    font-size: .75rem;
+    color: #6b7280;
+  }
+
+  .comparativo-card {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 16px;
+    padding: 16px;
+  }
+
+  .compras-acoes-mobile {
+    flex-direction: column;
+  }
+
+  .compras-acoes-mobile .btn {
+    width: 100%;
+    min-height: 44px;
+    flex: none !important;
+  }
+}
+
+/* RESP-003 — Botão Importar PDF */
+.compras-acoes-mobile .btn-primary {
+  background-color: #6d28d9;
+  border-color: #6d28d9;
+}
+
+.compras-acoes-mobile .btn-primary:hover {
+  background-color: #5b21b6;
+  border-color: #5b21b6;
+}
+
+/* RESP-003 — Espaçamento para o menu mobile */
+@media (max-width: 1023px) {
+  .compras-container {
+    padding-top: 32px;
+  }
+}
