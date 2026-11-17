@@ -215,3 +215,111 @@
     display: none; /* Esconde o painel roxo em celular */
   }
 }
+
+/* RESP-007 — Responsividade do Login */
+
+:host {
+  min-height: 100dvh;
+  height: auto;
+}
+
+.main-container {
+  min-height: 100dvh;
+  height: auto;
+  padding: 24px;
+  box-sizing: border-box;
+}
+
+.login-box {
+  max-width: 900px;
+}
+
+.form-panel,
+.form-panel form {
+  min-width: 0;
+}
+
+.form-panel .input-group {
+  display: block;
+  width: 100%;
+}
+
+.form-panel .input-group input {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.form-panel .input-icon {
+  z-index: 1;
+  pointer-events: none;
+}
+
+.forgot-password-link {
+  color: #5b21b6;
+  text-decoration: none;
+}
+
+.forgot-password-link:hover {
+  text-decoration: underline;
+}
+
+/* Tablet */
+@media (min-width: 576px) and (max-width: 950px) {
+  .login-box {
+    width: 100%;
+    max-width: 560px;
+  }
+
+  .form-panel {
+    padding: 48px;
+  }
+}
+
+/* Smartphone */
+@media (max-width: 575px) {
+  .main-container {
+    padding: 16px;
+    align-items: center;
+  }
+
+  .login-box {
+    width: 100%;
+    max-width: 420px;
+    height: auto;
+    border-radius: 18px;
+  }
+
+  .form-panel {
+    padding: 36px 24px;
+  }
+
+  .form-panel h2 {
+    font-size: 30px;
+    margin-bottom: 28px;
+  }
+
+  .form-options {
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+
+  .remember-me {
+    gap: 6px;
+  }
+
+  .remember-me input {
+    margin-right: 0;
+  }
+
+  .btn-sign-in {
+    min-height: 48px;
+    font-size: 16px;
+  }
+
+  .create-account {
+    margin-top: 28px;
+    line-height: 1.6;
+  }
+}
