@@ -103,3 +103,141 @@
   font-size: 0.9rem;
   color: #555;
 }
+
+
+/* RESP-005 — Meus Lançamentos responsivo */
+
+/* Desktop e tablet: ocultar cards */
+.lancamentos-mobile {
+  display: none;
+}
+
+/* Identidade visual roxa */
+.card-header.bg-primary,
+.modal-header.bg-primary {
+  background: linear-gradient(135deg, #5b21b6, #4338ca) !important;
+}
+
+.btn-outline-primary {
+  color: #5b21b6;
+  border-color: #5b21b6;
+}
+
+.btn-outline-primary:hover {
+  background-color: #5b21b6;
+  color: #fff;
+}
+
+.page-item.active .page-link {
+  background-color: #5b21b6;
+  border-color: #5b21b6;
+}
+
+/* Smartphone */
+@media (max-width: 575px) {
+
+  /* Oculta somente a tabela principal */
+  .table-responsive > .table {
+    display: none;
+  }
+
+  .lancamentos-mobile {
+    display: grid;
+    gap: 14px;
+  }
+
+  .lancamento-mobile-card {
+    background: #fff;
+    border: 1px solid #e9e5f2;
+    border-left: 4px solid #5b21b6;
+    border-radius: 12px;
+    padding: 15px;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.05);
+    min-width: 0;
+  }
+
+  .lancamento-mobile-topo {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .lancamento-mobile-descricao {
+    font-size: 0.95rem;
+    font-weight: 700;
+    overflow-wrap: anywhere;
+    min-width: 0;
+  }
+
+  .lancamento-mobile-topo .badge {
+    flex-shrink: 0;
+    font-size: 0.65rem;
+  }
+
+  .lancamento-mobile-valor {
+    font-size: 1.25rem;
+    font-weight: 700;
+    margin: 12px 0;
+  }
+
+  .lancamento-mobile-detalhes {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    padding: 12px 0;
+    border-top: 1px solid #eee;
+    border-bottom: 1px solid #eee;
+  }
+
+  .lancamento-mobile-detalhes > div {
+    min-width: 0;
+  }
+
+  .lancamento-mobile-detalhes span {
+    display: block;
+    font-size: 0.72rem;
+    color: #6b7280;
+    margin-bottom: 3px;
+  }
+
+  .lancamento-mobile-detalhes strong {
+    display: block;
+    font-size: 0.82rem;
+    overflow-wrap: anywhere;
+  }
+
+  .lancamento-mobile-acoes {
+    display: flex;
+    gap: 10px;
+    margin-top: 14px;
+  }
+
+  .lancamento-mobile-acoes .btn {
+    flex: 1;
+    min-width: 0;
+    padding: 10px 6px;
+  }
+
+  /* Cabeçalho da página */
+  .card-header {
+    flex-direction: column;
+    align-items: stretch !important;
+    gap: 12px;
+  }
+
+  .card-header h3 {
+    font-size: 1.25rem;
+  }
+
+  .card-header .btn {
+    width: 100%;
+    font-size: 0.95rem;
+  }
+
+  /* Paginação */
+  .pagination {
+    flex-wrap: wrap;
+    gap: 2px;
+  }
+}

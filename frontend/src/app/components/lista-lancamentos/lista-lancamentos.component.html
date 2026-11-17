@@ -19,6 +19,62 @@
       </div>
 
       <div class="table-responsive" *ngIf="!carregando && listaLancamentos.length > 0">
+
+<!-- RESP-005: Cards para smartphones -->
+<div class="lancamentos-mobile">
+  <div class="lancamento-mobile-card"
+       *ngFor="let item of lancamentosPaginados">
+
+    <div class="lancamento-mobile-topo">
+      <div class="lancamento-mobile-descricao">
+        {{ item.descricao }}
+      </div>
+
+      <span class="badge"
+            [ngClass]="item.tipo.toLowerCase() === 'receita'
+              ? 'bg-success' : 'bg-danger'">
+        {{ item.tipo | uppercase }}
+      </span>
+    </div>
+
+    <div class="lancamento-mobile-valor"
+         [ngClass]="item.tipo.toLowerCase() === 'receita'
+           ? 'text-success' : 'text-danger'">
+      {{ item.valor | currency:'BRL' }}
+    </div>
+
+    <div class="lancamento-mobile-detalhes">
+      <div>
+        <span>Data da nota</span>
+        <strong>{{ item.dataEmissao | date:'dd/MM/yyyy' }}</strong>
+      </div>
+
+      <div>
+        <span>Categoria</span>
+        <strong>{{ item.categoriaRef?.nome || 'Geral' }}</strong>
+      </div>
+
+      <div>
+        <span>Importação</span>
+        <strong>{{ item.dataImportacao | date:'dd/MM/yyyy' }}</strong>
+      </div>
+    </div>
+
+    <div class="lancamento-mobile-acoes">
+      <button class="btn btn-outline-primary btn-sm"
+              (click)="abrirModalItens(item)">
+        <i class="bi bi-eye me-1"></i> Visualizar
+      </button>
+
+      <button class="btn btn-outline-danger btn-sm"
+              (click)="excluir(item.id!)">
+        <i class="bi bi-trash me-1"></i> Excluir
+      </button>
+    </div>
+
+  </div>
+</div>
+
         <table class="table table-hover align-middle">
           <thead class="table-light text-secondary small">
             <tr>
