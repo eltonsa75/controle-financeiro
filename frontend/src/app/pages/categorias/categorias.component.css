@@ -1,0 +1,90 @@
+
+/* RESP-006 - Gestão de Categorias */
+
+.categorias-header {
+  gap: 16px;
+}
+
+.categorias-header-grupo {
+  min-width: 0;
+}
+
+.categorias-btn-nova {
+  flex-shrink: 0;
+}
+
+/* Identidade visual */
+.btn-primary {
+  background-color: #5b21b6;
+  border-color: #5b21b6;
+}
+
+.btn-outline-primary {
+  color: #5b21b6;
+  border-color: #5b21b6;
+}
+
+.text-primary {
+  color: #5b21b6 !important;
+}
+
+/* Tablet */
+@media (min-width: 576px) and (max-width: 1023px) {
+  .categorias-header,
+  .categorias-header-grupo {
+    flex-wrap: wrap;
+  }
+}
+
+/* Smartphone */
+@media (max-width: 575px) {
+  .categorias-header {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 14px;
+  }
+
+  .categorias-header-grupo {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 12px !important;
+  }
+
+  .categorias-header h2 {
+    font-size: 1.3rem;
+    line-height: 1.4;
+    overflow-wrap: normal;
+  }
+
+  .categorias-header .btn-group {
+    display: flex;
+    width: 100%;
+  }
+
+  .categorias-header .btn-group .btn {
+    flex: 1;
+  }
+
+  .categorias-btn-nova {
+    width: 100%;
+    min-height: 44px;
+  }
+
+  .modal-dialog {
+    margin: 8px;
+    max-width: calc(100% - 16px);
+  }
+
+  .modal-content {
+    max-height: calc(100dvh - 16px);
+    overflow: hidden;
+  }
+
+  .modal-body {
+    overflow-y: auto;
+  }
+
+  .modal-footer .btn {
+    flex: 1;
+  }
+}

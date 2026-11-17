@@ -77,3 +77,10 @@ body {
     overflow-x: hidden;
   }
 }
+
+/* Oculta o botão do menu quando o modal de Categorias estiver aberto */
+@media (max-width: 1023px) {
+  body:has(app-categorias .modal.show) .btn-menu-mobile {
+    display: none !important;
+  }
+}
