@@ -75,3 +75,5 @@
   }
 }
 
+
+@media (max-width: 1023px) { .sidebar { height: 100%; max-height: 100dvh; min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; } .sidebar .nav, .sidebar .logo, .sidebar .logout, .sidebar hr { flex-shrink: 0; } .sidebar .logout { padding-bottom: max(12px, env(safe-area-inset-bottom)); } }
