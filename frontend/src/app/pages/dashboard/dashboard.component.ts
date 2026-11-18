@@ -154,14 +154,30 @@ export class DashboardComponent implements OnInit, AfterViewInit {
               }
             ]
           },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-              legend: {
-                position: 'top',
-                labels: { boxWidth: 15, font: { size: 12, weight: 500 } }
-              },
+        options: {
+  responsive: true,
+  maintainAspectRatio: false,
+
+  layout: {
+    padding: {
+      top: window.innerWidth <= 480 ? 25 : 10
+    }
+  },
+
+  plugins: {
+             legend: {
+  position: 'top',
+  align: 'center',
+  labels: {
+    boxWidth: window.innerWidth <= 480 ? 10 : 15,
+    boxHeight: window.innerWidth <= 480 ? 10 : 15,
+    padding: window.innerWidth <= 480 ? 8 : 15,
+    font: {
+      size: window.innerWidth <= 480 ? 10 : 12,
+      weight: 500
+    }
+  }
+},
               tooltip: {
                 callbacks: {
                   label: (context: any) => {
@@ -170,18 +186,46 @@ export class DashboardComponent implements OnInit, AfterViewInit {
                   }
                 }
               },
-              datalabels: {
-                display: true,
-                align: 'top',
-                backgroundColor: 'rgba(255,255,255,0.9)', // Fundo claro para contrastar com as linhas de grade
-                borderRadius: 4,
-                borderWidth: 1,
-                borderColor: '#e5e7eb',
-                padding: { left: 6, right: 6, top: 4, bottom: 4 },
-                color: '#1f2937', // Texto escuro mais refinado
-                font: { weight: 'bold', size: 10 },
-                formatter: (value: number) => value > 0 ? `R$ ${value.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}` : ''
-              }
+           datalabels: {
+  display: (context: any) => {
+    const value = Number(context.dataset.data[context.dataIndex]);
+    return value > 0;
+  },
+  align: (context: any) => {
+    const index = context.dataIndex;
+    const total = context.chart.data.labels?.length ?? 0;
+
+    if (index === 0) return 'right';
+    if (index === total - 1) return 'left';
+
+    return 'top';
+  },
+  anchor: 'end',
+  clamp: true,
+  clip: false,
+  offset: 4,
+  backgroundColor: 'rgba(255,255,255,0.95)',
+  borderRadius: 4,
+  borderWidth: 1,
+  borderColor: '#e5e7eb',
+  padding: {
+    left: 4,
+    right: 4,
+    top: 3,
+    bottom: 3
+  },
+  color: '#1f2937',
+  font: {
+    weight: 'bold',
+    size: 9
+  },
+  formatter: (value: number) =>
+    value > 0
+      ? `R$ ${value.toLocaleString('pt-BR', {
+          maximumFractionDigits: 0
+        })}`
+      : ''
+}
             },
             scales: {
               x: {
@@ -261,7 +305,9 @@ export class DashboardComponent implements OnInit, AfterViewInit {
             maintainAspectRatio: false,
             plugins: {
               legend: {
-                position: 'right',
+position: (window.visualViewport?.width ?? window.innerWidth) <= 575
+  ? 'bottom'
+  : 'right',
                 labels: { boxWidth: 12, padding: 12, font: { size: 11 }, color: '#4b5563' }
               },
               tooltip: {
@@ -270,20 +316,41 @@ export class DashboardComponent implements OnInit, AfterViewInit {
                     `${context.label}: ${this.formatarMoeda(Number(context.raw))}`
                 }
               },
-              datalabels: {
-                display: true,
-                formatter: (value: number, context: any) => {
-                  const valores = context.dataset.data as number[];
-                  const total = valores.reduce((acc, atual) => acc + Number(atual), 0);
-                  return total > 0 && (value / total) * 100 > 4
-                    ? this.formatarMoeda(value) : '';
-                },
-                backgroundColor: 'rgba(255,255,255,0.85)',
-                borderRadius: 4,
-                padding: 4,
-                color: '#1f2937',
-                font: { weight: 'bold', size: 10 }
-              }
+            datalabels: {
+  display: (context: any) => {
+    const valor = Number(context.dataset.data[context.dataIndex]);
+    return valor > 0;
+  },
+  align: (context: any) => {
+    const indice = context.dataIndex;
+    const total = context.chart.data.labels?.length ?? 0;
+
+    if (indice === 0) return 'right';
+    if (indice === total - 1) return 'left';
+
+    return 'top';
+  },
+  anchor: 'end',
+  clamp: true,
+  clip: false,
+  offset: 4,
+  backgroundColor: 'rgba(255,255,255,0.95)',
+  borderRadius: 4,
+  borderWidth: 1,
+  borderColor: '#e5e7eb',
+  padding: 3,
+  color: '#1f2937',
+  font: {
+    weight: 'bold',
+    size: 9
+  },
+  formatter: (value: number) =>
+    value > 0
+      ? `R$ ${value.toLocaleString('pt-BR', {
+          maximumFractionDigits: 0
+        })}`
+      : ''
+}
             }
           }
         });
@@ -307,67 +374,176 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   }
 
 
-  carregarGraficoMaisCaros(): void {
-    this.financeiroService.getItensMaisCaros(this.mesSelecionado, this.anoSelecionado).subscribe({
-      next: (itens: ItemCaro[]) => {
-        if (!this.canvasCarosRef?.nativeElement || !itens || itens.length === 0) return;
-        if (this.chartCaros) this.chartCaros.destroy();
 
-        this.chartCaros = new Chart(this.canvasCarosRef.nativeElement, {
+carregarGraficoMaisCaros(): void {
+  this.financeiroService
+    .getItensMaisCaros(this.mesSelecionado, this.anoSelecionado)
+    .subscribe({
+      next: (itens: ItemCaro[]) => {
+        if (!this.canvasCarosRef?.nativeElement) return;
+
+        if (this.chartCaros) {
+          this.chartCaros.destroy();
+          this.chartCaros = null;
+        }
+
+        if (!itens || itens.length === 0) return;
+
+        const canvas = this.canvasCarosRef.nativeElement;
+        const mobile = (window.visualViewport?.width ?? window.innerWidth) <= 575;
+
+        const valores = itens.map(i => Number(i.valorTotal) || 0);
+        const maiorValor = Math.max(...valores, 1);
+
+        // Reserva aproximadamente 30% da escala para os valores.
+        const limiteEixoX = maiorValor * 1.3;
+
+        // Ajusta a altura conforme a quantidade de produtos.
+        const alturaGrafico = Math.max(
+          mobile ? 220 : 260,
+          itens.length * (mobile ? 42 : 46) + 25
+        );
+
+        const container = canvas.parentElement;
+        if (container) {
+          container.style.height = `${alturaGrafico}px`;
+        }
+
+        this.chartCaros = new Chart(canvas, {
           type: 'bar',
           data: {
-            labels: itens.map(i => i.descricao.length > 18 ? i.descricao.substring(0, 18) + '...' : i.descricao),
+            labels: itens.map(i => {
+              const descricao = i.descricao || '';
+              const limite = mobile ? 16 : 22;
+
+              return descricao.length > limite
+                ? descricao.substring(0, limite) + '...'
+                : descricao;
+            }),
             datasets: [{
               label: 'Valor (R$)',
-              data: itens.map(i => i.valorTotal),
-              backgroundColor: 'rgba(99, 91, 255, 0.85)', // Usando o roxo identitário do seu app
+              data: valores,
+              backgroundColor: 'rgba(99, 91, 255, 0.85)',
               hoverBackgroundColor: '#635bff',
-              borderRadius: 6, // Cantos arredondados modernos nas pontas das barras
-              borderSkipped: false
+              borderRadius: 6,
+              borderSkipped: false,
+              maxBarThickness: mobile ? 22 : 28,
+              categoryPercentage: 0.75,
+              barPercentage: 0.85
             }]
           },
           options: {
-            indexAxis: 'y', // Mantém o gráfico na horizontal (modo ranking)
+            indexAxis: 'y',
             responsive: true,
             maintainAspectRatio: false,
-            plugins: {
-              legend: { display: false }, // Oculta a legenda já que o título do card explica o gráfico
-              tooltip: {
-                callbacks: {
-                  label: (context: any) => ` Valor: R$ ${context.raw.toLocaleString('pt-BR')}`
-                }
-              },
-              datalabels: {
-                anchor: 'end',
-                align: 'end',
-                formatter: (value: number) => `R$ ${value.toLocaleString('pt-BR')}`,
-                backgroundColor: 'rgba(31, 41, 55, 0.9)',
-                borderRadius: 4,
-                padding: { left: 6, right: 6, top: 4, bottom: 4 },
-                color: 'white',
-                font: { weight: 'bold', size: 10 }
+
+            layout: {
+              padding: {
+                top: 8,
+                bottom: 8,
+                left: 0,
+                right: 8
               }
             },
+
+            plugins: {
+              legend: {
+                display: false
+              },
+
+              tooltip: {
+                callbacks: {
+                  title: (context: any) => {
+                    const indice = context[0]?.dataIndex;
+                    return indice !== undefined
+                      ? itens[indice].descricao
+                      : '';
+                  },
+                  label: (context: any) =>
+                    ` Valor: R$ ${Number(context.raw).toLocaleString('pt-BR', {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2
+                    })}`
+                }
+              },
+
+              datalabels: {
+                display: (context: any) =>
+                  Number(context.dataset.data[context.dataIndex]) > 0,
+
+                anchor: 'end',
+                align: 'end',
+                offset: 5,
+
+                clamp: false,
+                clip: false,
+
+                backgroundColor: 'rgba(255,255,255,0.98)',
+                borderColor: '#e5e7eb',
+                borderWidth: 1,
+                borderRadius: 4,
+
+                padding: {
+                  top: 3,
+                  bottom: 3,
+                  left: 4,
+                  right: 4
+                },
+
+                color: '#1f2937',
+
+                font: {
+                  weight: 'bold',
+                  size: mobile ? 9 : 10
+                },
+
+                formatter: (value: number) =>
+                  value > 0
+                    ? `R$ ${value.toLocaleString('pt-BR', {
+                        maximumFractionDigits: 0
+                      })}`
+                    : ''
+              }
+            },
+
             scales: {
               x: {
-                display: false, // Oculta o eixo inferior eliminando a redundância com as etiquetas de dados
-                grid: { display: false }
+                display: false,
+                beginAtZero: true,
+                max: limiteEixoX,
+                grid: {
+                  display: false
+                }
               },
+
               y: {
-                border: { display: false },
-                grid: { display: false }, // Remove linhas de grade residuais
+                border: {
+                  display: false
+                },
+
+                grid: {
+                  display: false
+                },
+
                 ticks: {
                   color: '#4b5563',
-                  font: { size: 12, weight: 500 }
+                  font: {
+                    size: mobile ? 10 : 12,
+                    weight: 500
+                  },
+                  autoSkip: false
                 }
               }
             }
           }
         });
       },
-      error: (err: any) => console.error('Erro ao carregar gráfico de itens caros:', err)
+
+      error: (err: any) =>
+        console.error('Erro ao carregar gráfico de itens caros:', err)
     });
-  }
+}
+
 
   importarNota(): void {
     if (!this.urlNota) return;

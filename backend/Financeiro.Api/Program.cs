@@ -24,10 +24,11 @@ builder.Services.AddCors(options =>
     options.AddPolicy("MinhaPoliticaCors", policy =>
     {
         policy.WithOrigins(
-                "https://comprasinteligente.com.br",
-                "https://www.comprasinteligente.com.br",
-                "http://localhost",
-                "http://localhost:80")
+                 "https://comprasinteligente.com.br",
+        "https://www.comprasinteligente.com.br",
+        "http://localhost",
+        "http://localhost:80",
+        "http://localhost:4200")
             .AllowAnyHeader()
             .AllowAnyMethod()
             .AllowCredentials();
