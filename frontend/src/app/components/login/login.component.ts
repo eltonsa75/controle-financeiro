@@ -24,13 +24,9 @@ export class LoginComponent {
 
   async onSubmit() {
     try {
-      console.log('Tentando logar...');
       await this.authService.login(this.email, this.senha);
-      console.log('Logado com sucesso!');
-
       // Mudar para a rota correta após o login
       this.router.navigate(['/compras']);
-
     } catch (e: any) {
       console.error(e);
       // Firebase costuma retornar erros no formato { code: 'auth/invalid-email' }

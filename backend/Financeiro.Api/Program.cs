@@ -103,9 +103,31 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 
+// CI-030 - Configuração do Redis
+var redisConnection = builder.Configuration["Redis:ConnectionString"];
+
+if (!string.IsNullOrWhiteSpace(redisConnection))
+{
+    builder.Services.AddStackExchangeRedisCache(options =>
+    {
+        options.Configuration = redisConnection;
+        options.InstanceName = "ComprasInteligentes:";
+    });
+}
+else
+{
+    builder.Services.AddDistributedMemoryCache();
+}
+
+
 builder.Services.AddAuthorization();
+
 builder.Services.AddScoped<FinanceiroRepository>();
 builder.Services.AddScoped<ImportacaoNotaService>();
+
+// CI-031 - Publicador RabbitMQ
+builder.Services.AddScoped<RabbitMqPublisher>();
+
 
 builder.Services.AddControllers()
     .AddJsonOptions(options =>

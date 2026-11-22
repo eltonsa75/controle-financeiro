@@ -64,3 +64,8 @@ yarn-error.log*
 *.py[cod]
 **/.venv/
 **/venv/
+
+# Backups locais do MySQL
+/backups/
+/backend-api.env
+/backend-container-backup.json

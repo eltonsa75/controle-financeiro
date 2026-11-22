@@ -1,33 +1,30 @@
-
-# ==========================================
-# ESTÁGIO 1 - BUILD DO ANGULAR
-# ==========================================
-
-FROM node:18 AS build
+# Estágio 1 - Build Angular
+FROM node:20-alpine AS build
 
 WORKDIR /app
 
 COPY package*.json ./
 
-RUN npm install --legacy-peer-deps
+RUN npm install -g npm@10.9.2 \
+    && npm ci --legacy-peer-deps
 
 COPY . .
 
 RUN npm run build
 
-
-# ==========================================
-# ESTÁGIO 2 - NGINX
-# ==========================================
-
+# Estágio 2 - Nginx
 FROM nginx:alpine
 
-# Copia os arquivos compilados do Angular
 COPY --from=build /app/dist/carrinho-certo-app/browser /usr/share/nginx/html
 
-# Copia a configuração personalizada do Nginx
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+ARG NGINX_ENV=local
 
-EXPOSE 80
+COPY nginx.local.conf /tmp/nginx.local.conf
+COPY nginx.prod.conf /tmp/nginx.prod.conf
+
+RUN cp /tmp/nginx.${NGINX_ENV}.conf /etc/nginx/conf.d/default.conf \
+    && rm /tmp/nginx.local.conf /tmp/nginx.prod.conf
+
+EXPOSE 80 443
 
 CMD ["nginx", "-g", "daemon off;"]

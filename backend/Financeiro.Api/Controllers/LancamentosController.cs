@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Globalization;
 using System.Security.Claims;
+using Microsoft.Extensions.Caching.Distributed;
 
 namespace FinanceiroApi.Controllers
 {
@@ -20,12 +21,18 @@ namespace FinanceiroApi.Controllers
         private readonly AppDbContext _context;
         private readonly FinanceiroRepository _repository;
         private readonly ImportacaoNotaService _importacaoService;
+        private readonly IDistributedCache _cache;
 
-        public LancamentosController(AppDbContext context, FinanceiroRepository repository, ImportacaoNotaService importacaoService)
+        public LancamentosController(
+       AppDbContext context,
+       FinanceiroRepository repository,
+       ImportacaoNotaService importacaoService,
+       IDistributedCache cache)
         {
             _context = context;
             _repository = repository;
             _importacaoService = importacaoService;
+            _cache = cache;
         }
 
         // Helper para centralizar a obtenção do UserId dinâmico com fallback seguro para testes
@@ -179,6 +186,8 @@ namespace FinanceiroApi.Controllers
 
                 var strategy = _context.Database.CreateExecutionStrategy();
 
+
+
                 await strategy.ExecuteAsync(async () =>
                 {
                     await using var transaction =
@@ -229,6 +238,16 @@ namespace FinanceiroApi.Controllers
                         throw;
                     }
                 });
+
+                // CI-030 - Invalida o cache após a transação confirmada.
+                await InvalidarCacheFinanceiroAsync(
+                    userId,
+                    lancamento.DataEmissao
+                );
+
+                Console.WriteLine(
+                    $"[REDIS] Cache invalidado após lançamento #{lancamento.Id}."
+                );
 
                 return CreatedAtAction(
                     nameof(GetLancamento),
@@ -608,6 +627,16 @@ namespace FinanceiroApi.Controllers
                     });
                 }
 
+                // CI-030 - Invalida o Redis após a importação do PDF.
+                await InvalidarCacheFinanceiroAsync(
+                    userId,
+                    lancamento.DataEmissao
+                );
+
+                Console.WriteLine(
+                    $"[REDIS] Cache invalidado após importação do PDF #{lancamento.Id}."
+                );
+
                 return Ok(new
                 {
                     sucesso = true,
@@ -715,6 +744,15 @@ namespace FinanceiroApi.Controllers
 
                 await _context.SaveChangesAsync();
 
+                // CI-030 - Invalida o cache após salvar no MySQL.
+                await InvalidarCacheFinanceiroAsync(
+                    userId,
+                    novoLancamento.DataEmissao
+                );
+
+                Console.WriteLine(
+                    $"[REDIS] Cache invalidado após lançamento manual #{novoLancamento.Id}."
+                );
 
                 return Ok(novoLancamento);
             }
@@ -761,18 +799,39 @@ namespace FinanceiroApi.Controllers
         }
 
         // DELETE: api/Lancamentos/5
+
         [HttpDelete("{id:int}")]
         public async Task<IActionResult> DeleteLancamento(int id)
         {
             var userId = ObterUserId();
-            var lancamento = await _context.Lancamentos.FirstOrDefaultAsync(l => l.Id == id && l.UsuarioId == userId);
-            if (lancamento == null) return NotFound();
+
+            var lancamento = await _context.Lancamentos
+                .FirstOrDefaultAsync(l => l.Id == id && l.UsuarioId == userId);
+
+            if (lancamento == null)
+                return NotFound();
+
+            // Guarda a data antes de excluir o lançamento.
+            var dataLancamento = lancamento.DataEmissao;
 
             _context.Lancamentos.Remove(lancamento);
+
+            // Confirma a exclusão no MySQL.
             await _context.SaveChangesAsync();
+
+            // CI-030 - Invalida o Redis após a exclusão.
+            await InvalidarCacheFinanceiroAsync(
+                userId,
+                dataLancamento
+            );
+
+            Console.WriteLine(
+                $"[REDIS] Cache invalidado após exclusão do lançamento #{id}."
+            );
 
             return NoContent();
         }
+
 
         private async Task<int> ObterIdDaCategoriaPorNome(string nome)
         {
@@ -830,6 +889,38 @@ namespace FinanceiroApi.Controllers
             }
 
             return "Outros";
+        }
+
+        private async Task InvalidarCacheFinanceiroAsync(
+    string usuarioId,
+    DateTime dataLancamento)
+        {
+            var chaveCategoria =
+                $"gastos-categoria:{usuarioId}:{dataLancamento:yyyy:MM}";
+
+            var chaveAnual =
+                $"gastos-anuais:{usuarioId}:{DateTime.Now.Year}";
+
+            try
+            {
+                await _cache.RemoveAsync(chaveCategoria);
+
+                // O cache anual existente utiliza o ano corrente.
+                if (dataLancamento.Year == DateTime.Now.Year)
+                {
+                    await _cache.RemoveAsync(chaveAnual);
+                }
+
+                Console.WriteLine(
+                    $"[REDIS] Cache financeiro invalidado para {dataLancamento:MM/yyyy}.");
+            }
+            catch (Exception ex)
+            {
+                // Uma falha no Redis não deve desfazer uma operação
+                // financeira já confirmada no MySQL.
+                Console.WriteLine(
+                    $"[REDIS] Falha ao invalidar cache: {ex.Message}");
+            }
         }
     }
 }

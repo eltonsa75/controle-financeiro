@@ -1,19 +1,26 @@
-﻿using Dapper;
+using Dapper;
 using Financeiro.Api.Models.DTO;
 using Microsoft.Extensions.Configuration;
 using MySqlConnector;
 using System.Data;
+using Microsoft.Extensions.Caching.Distributed;
+using System.Text.Json;
 
 namespace Financeiro.Api.Repositories
 {
     public class FinanceiroRepository
     {
         private readonly string _connectionString;
+        private readonly IDistributedCache _cache;
 
-        public FinanceiroRepository(IConfiguration config)
+        public FinanceiroRepository(
+    IConfiguration config,
+    IDistributedCache cache)
         {
             _connectionString = config.GetConnectionString("DefaultConnection")
                                 ?? "Server=mysql-db;Database=comprasintelig;Uid=root;Pwd=sua_senha;";
+
+            _cache = cache;
         }
 
         private IDbConnection Connection => new MySqlConnection(_connectionString);
@@ -38,10 +45,36 @@ namespace Financeiro.Api.Repositories
         // Para notas com itens, rateia o valor pago (incluindo descontos)
         // proporcionalmente ao valor bruto de cada item.
         public async Task<IEnumerable<GastosCategoriaDTO>> ObterGastosPorCategoria(
-            string usuarioId,
-            int mes,
-            int ano)
+      string usuarioId,
+      int mes,
+      int ano)
         {
+            // CI-030 - Cache Redis por usuário, ano e mês
+            var cacheKey = $"gastos-categoria:{usuarioId}:{ano}:{mes:D2}";
+
+            try
+            {
+                var dadosCache = await _cache.GetStringAsync(cacheKey);
+
+                if (!string.IsNullOrWhiteSpace(dadosCache))
+                {
+                    var resultadoCache =
+                        JsonSerializer.Deserialize<List<GastosCategoriaDTO>>(dadosCache);
+
+                    if (resultadoCache != null)
+                    {
+                        Console.WriteLine("[REDIS] Cache HIT - gastos por categoria.");
+                        return resultadoCache;
+                    }
+                }
+
+                Console.WriteLine("[REDIS] Cache MISS - gastos por categoria.");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[REDIS] Falha ao consultar cache: {ex.Message}");
+            }
+
             using var conn = Connection;
 
             const string sql = @"
@@ -104,18 +137,72 @@ namespace Financeiro.Api.Repositories
             var inicio = new DateTime(ano, mes, 1);
             var fim = inicio.AddMonths(1);
 
-            return await conn.QueryAsync<GastosCategoriaDTO>(sql, new
+            // CI-030 - Consulta os gastos por categoria no MySQL
+            var resultado = (await conn.QueryAsync<GastosCategoriaDTO>(
+                sql,
+                new
+                {
+                    UsuarioId = usuarioId,
+                    Inicio = inicio,
+                    Fim = fim
+                }
+            )).ToList();
+
+            // CI-030 - Armazena o resultado no Redis por 5 minutos
+            try
             {
-                UsuarioId = usuarioId,
-                Inicio = inicio,
-                Fim = fim
-            });
+                var dadosJson = JsonSerializer.Serialize(resultado);
+
+                var opcoesCache = new DistributedCacheEntryOptions
+                {
+                    AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(5)
+                };
+
+                await _cache.SetStringAsync(
+                    cacheKey,
+                    dadosJson,
+                    opcoesCache
+                );
+
+                Console.WriteLine("[REDIS] Gastos por categoria armazenados no cache.");
+            }
+            catch (Exception ex)
+            {
+                // Se o Redis falhar, os dados consultados no MySQL
+                // continuam sendo retornados normalmente.
+                Console.WriteLine($"[REDIS] Falha ao gravar cache: {ex.Message}");
+            }
+
+            return resultado;
         }
 
         public async Task<IEnumerable<GastosAnuaisCategoriaDTO>> ObterGastosAnuaisComMetas(string usuarioId)
         {
-            using var conn = Connection;
+            // CI-030 - Cache Redis por usuário e ano
+            var anoAtual = DateTime.Now.Year;
+            var cacheKey = $"gastos-anuais:{usuarioId}:{anoAtual}";
 
+            try
+            {
+                var dadosCache = await _cache.GetStringAsync(cacheKey);
+
+                if (!string.IsNullOrWhiteSpace(dadosCache))
+                {
+                    var resultadoCache =
+                        JsonSerializer.Deserialize<List<GastosAnuaisCategoriaDTO>>(dadosCache);
+
+                    if (resultadoCache != null)
+                    {
+                        return resultadoCache;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                // Se o Redis estiver indisponível, continua consultando o MySQL.
+                Console.WriteLine($"[REDIS] Falha ao consultar cache: {ex.Message}");
+            }
+            using var conn = Connection;
             const string sql = @"
         SELECT
             Dados.Categoria,
@@ -271,13 +358,40 @@ namespace Financeiro.Api.Repositories
         ORDER BY ValorGastoAno DESC;
     ";
 
-            return await conn.QueryAsync<GastosAnuaisCategoriaDTO>(
+            // CI-030 - Consulta os dados no MySQL
+            var resultado = (await conn.QueryAsync<GastosAnuaisCategoriaDTO>(
                 sql,
                 new
                 {
                     UsuarioId = usuarioId
                 }
-            );
+            )).ToList();
+
+            // CI-030 - Armazena o resultado no Redis por 5 minutos
+            try
+            {
+                var dadosJson = JsonSerializer.Serialize(resultado);
+
+                var opcoesCache = new DistributedCacheEntryOptions
+                {
+                    AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(5)
+                };
+
+                await _cache.SetStringAsync(
+                    cacheKey,
+                    dadosJson,
+                    opcoesCache
+                );
+
+                Console.WriteLine("[REDIS] Gastos anuais armazenados no cache.");
+            }
+            catch (Exception ex)
+            {
+                // Falhas no Redis não impedem o retorno dos dados do MySQL.
+                Console.WriteLine($"[REDIS] Falha ao gravar cache: {ex.Message}");
+            }
+
+            return resultado;
         }
     }
 }
