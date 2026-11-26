@@ -1,0 +1,22 @@
+services:
+  redis:
+    mem_limit: 256m
+    cpus: 0.50
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --maxmemory
+      - 128mb
+      - --maxmemory-policy
+      - allkeys-lru
+
+  rabbitmq:
+    mem_limit: 768m
+    cpus: 1.00
+    volumes:
+      - ./rabbitmq.conf:/etc/rabbitmq/conf.d/90-memory.conf:ro
+
+  worker:
+    mem_limit: 256m
+    cpus: 0.50

@@ -1,0 +1,7 @@
+services:
+  backend:
+    image: compras-inteligentes-backend:f6b30b6
+  frontend:
+    image: compras-inteligentes-frontend:f6b30b6-hardening
+  worker:
+    image: compras-inteligentes-worker:f6b30b6

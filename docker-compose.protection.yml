@@ -1,0 +1,15 @@
+volumes:
+  db_data:
+    external: true
+    name: compras-inteligentes_db_data
+
+networks:
+  internal: !override
+    external: true
+    name: compras-inteligentes_internal
+
+services:
+  frontend:
+    volumes: !override
+      - /opt/compras-inteligentes/certbot/www:/var/www/certbot:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro

@@ -1,0 +1,5 @@
+services:
+  backend:
+    image: compras-inteligentes-backend:rollback-20261125
+  frontend:
+    image: compras-inteligentes-frontend:rollback-20261125

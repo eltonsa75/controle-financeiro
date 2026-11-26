@@ -1,0 +1,4 @@
+services:
+  backend:
+    environment:
+      PythonServiceUrl: "http://pdf-parser:8081"
